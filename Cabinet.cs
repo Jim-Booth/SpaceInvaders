@@ -18,13 +18,15 @@ namespace Invaders
         private static readonly CancellationToken portLoop = CancellationTokenSource.Token;
 
         private readonly byte[] inputPorts = [0x0E, 0x08, 0x00, 0x00];
-        private readonly int SCREEN_WIDTH = 446;
-        private readonly int SCREEN_HEIGHT = 512;
+        private readonly int SCREEN_WIDTH = 223;
+        private readonly int SCREEN_HEIGHT = 256;
+        private int SCREEN_MULTIPLIER = 2;
+        private readonly object resizeLock = new();
         
         private IntPtr window;
         private IntPtr renderer;
         private IntPtr texture;
-        private readonly uint[] pixelBuffer;
+        private uint[] pixelBuffer;
         private static readonly string appPath = AppDomain.CurrentDomain.BaseDirectory;
 
         private readonly CachedSound ufo_lowpitch = new(Path.Combine(appPath, "SOUNDS", "ufo_lowpitch.wav"));
@@ -45,8 +47,43 @@ namespace Invaders
 
         public Cabinet()
         {
-            pixelBuffer = new uint[SCREEN_WIDTH * SCREEN_HEIGHT];
+            pixelBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
             InitializeSDL();
+        }
+
+        private void ResizeDisplay(int newMultiplier)
+        {
+            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == SCREEN_MULTIPLIER)
+                return;
+
+            lock (resizeLock)
+            {
+                SCREEN_MULTIPLIER = newMultiplier;
+                
+                // Destroy old texture
+                if (texture != IntPtr.Zero)
+                    SDL.SDL_DestroyTexture(texture);
+                
+                // Recreate pixel buffer
+                pixelBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
+                
+                // Recreate texture
+                texture = SDL.SDL_CreateTexture(
+                    renderer,
+                    SDL.SDL_PIXELFORMAT_ARGB8888,
+                    (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
+                    SCREEN_WIDTH * SCREEN_MULTIPLIER,
+                    SCREEN_HEIGHT * SCREEN_MULTIPLIER
+                );
+                
+                if (texture == IntPtr.Zero)
+                {
+                    throw new Exception($"Texture could not be created! SDL_Error: {SDL.SDL_GetError()}");
+                }
+                
+                // Resize window
+                SDL.SDL_SetWindowSize(window, SCREEN_WIDTH * SCREEN_MULTIPLIER, SCREEN_HEIGHT * SCREEN_MULTIPLIER);
+            }
         }
 
         private void InitializeSDL()
@@ -60,8 +97,8 @@ namespace Invaders
                 "Space Invaders",
                 SDL.SDL_WINDOWPOS_CENTERED,
                 SDL.SDL_WINDOWPOS_CENTERED,
-                SCREEN_WIDTH,
-                SCREEN_HEIGHT,
+                SCREEN_WIDTH * SCREEN_MULTIPLIER,
+                SCREEN_HEIGHT * SCREEN_MULTIPLIER,
                 SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN
             );
 
@@ -69,6 +106,9 @@ namespace Invaders
             {
                 throw new Exception($"Window could not be created! SDL_Error: {SDL.SDL_GetError()}");
             }
+
+            // Enable linear filtering for smooth CRT-like appearance
+            SDL.SDL_SetHint(SDL.SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
             renderer = SDL.SDL_CreateRenderer(window, -1, SDL.SDL_RendererFlags.SDL_RENDERER_ACCELERATED);
             if (renderer == IntPtr.Zero)
@@ -81,8 +121,8 @@ namespace Invaders
                 renderer,
                 SDL.SDL_PIXELFORMAT_ARGB8888,
                 (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
-                SCREEN_WIDTH,
-                SCREEN_HEIGHT
+                SCREEN_WIDTH * SCREEN_MULTIPLIER,
+                SCREEN_HEIGHT * SCREEN_MULTIPLIER
             );
             
             if (texture == IntPtr.Zero)
@@ -97,6 +137,7 @@ namespace Invaders
             
             // Monitor for SDL events
             Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, ESC=Exit");
+            Console.WriteLine("Scale: [=Decrease (1x-4x), ]=Increase (1x-4x), Current=3x");
             SDL.SDL_Event sdlEvent;
             while (!CancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -219,34 +260,41 @@ namespace Invaders
             while (!displayLoop.IsCancellationRequested)
             {
                 cpu!.DisplayTiming.WaitOne();
-                try
+                lock (resizeLock)
                 {
-                    // Clear pixel buffer (black background)
-                    Array.Clear(pixelBuffer, 0, pixelBuffer.Length);
+                    try
+                    {
+                        // Clear pixel buffer (black background)
+                        Array.Clear(pixelBuffer, 0, pixelBuffer.Length);
 
                     int ptr = 0;
-                    for (int x = 0; x < SCREEN_WIDTH; x += 2)
+                    int scaledWidth = SCREEN_WIDTH * SCREEN_MULTIPLIER;
+                    int scaledHeight = SCREEN_HEIGHT * SCREEN_MULTIPLIER;
+                    for (int x = 0; x < scaledWidth; x += SCREEN_MULTIPLIER)
                     {
-                        for (int y = SCREEN_HEIGHT; y > 0; y -= 16)
+                        for (int y = scaledHeight; y > 0; y -= 8 * SCREEN_MULTIPLIER)
                         {
                             byte value = cpu.Video[ptr++];
                             for (int b = 0; b < 8; b++)
                             {
                                 if ((value & (1 << b)) != 0)
                                 {
-                                    int pixelY = y - (b * 2);
+                                    int pixelY = y - (b * SCREEN_MULTIPLIER);
                                     uint colorValue = GetColorValue(x, y);
                                     
-                                    // Draw 2x2 pixel block
-                                    int bufferIndex = pixelY * SCREEN_WIDTH + x;
+                                    // Draw SCREEN_MULTIPLIER x SCREEN_MULTIPLIER pixel block
+                                    int bufferIndex = pixelY * scaledWidth + x;
                                     if (bufferIndex >= 0 && bufferIndex < pixelBuffer.Length)
                                     {
-                                        pixelBuffer[bufferIndex] = colorValue;
-                                        pixelBuffer[bufferIndex + 1] = colorValue;
-                                        if (pixelY + 1 < SCREEN_HEIGHT)
+                                        for (int dy = 0; dy < SCREEN_MULTIPLIER; dy++)
                                         {
-                                            pixelBuffer[bufferIndex + SCREEN_WIDTH] = colorValue;
-                                            pixelBuffer[bufferIndex + SCREEN_WIDTH + 1] = colorValue;
+                                            if (pixelY + dy < scaledHeight)
+                                            {
+                                                for (int dx = 0; dx < SCREEN_MULTIPLIER; dx++)
+                                                {
+                                                    pixelBuffer[bufferIndex + (dy * scaledWidth) + dx] = colorValue;
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -259,40 +307,42 @@ namespace Invaders
                     {
                         fixed (uint* pixels = pixelBuffer)
                         {
-                            SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = SCREEN_WIDTH, h = SCREEN_HEIGHT };
-                            SDL.SDL_UpdateTexture(texture, ref fullRect, (IntPtr)pixels, SCREEN_WIDTH * sizeof(uint));
+                            SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = scaledWidth, h = scaledHeight };
+                            SDL.SDL_UpdateTexture(texture, ref fullRect, (IntPtr)pixels, scaledWidth * sizeof(uint));
                         }
                     }
 
                     // Render texture to screen
                     SDL.SDL_RenderClear(renderer);
                     SDL.SDL_RenderCopy(renderer, texture, IntPtr.Zero, IntPtr.Zero);
+                    
+                    // Draw CRT scanlines for authentic appearance
+                    SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+                    SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 90); // Semi-transparent black
+                    for (int y = 0; y < scaledHeight; y += SCREEN_MULTIPLIER)
+                    {
+                        SDL.SDL_RenderDrawLine(renderer, 0, y, scaledWidth, y);
+                    }
+                    
                     SDL.SDL_RenderPresent(renderer);
+                    }
+                    catch { }
                 }
-                catch { }
             }
         }
 
-        private static SDL.SDL_Color GetSDLColor(int screenPos_X, int screenPos_Y)
-        {
-            if (screenPos_Y < 478 && screenPos_Y > 390) return greenColor;
-            if (screenPos_Y < 512 && screenPos_Y > 480) return whiteColor2;
-            if ((screenPos_Y < 512 && screenPos_Y > 480) && (screenPos_X > 0 && screenPos_X < 254)) return greenColor;
-            if (screenPos_Y < 128 && screenPos_Y > 64) return redColor;
-            return whiteColor;
-        }
-
-        private static uint GetColorValue(int screenPos_X, int screenPos_Y)
+        private uint GetColorValue(int screenPos_X, int screenPos_Y)
         {
             // Convert SDL_Color to ARGB8888 format (0xAARRGGBB)
+            // Base values are for 1x resolution, scaled by SCREEN_MULTIPLIER
             SDL.SDL_Color color;
-            if (screenPos_Y < 478 && screenPos_Y > 390)
+            if (screenPos_Y < 239 * SCREEN_MULTIPLIER && screenPos_Y > 195 * SCREEN_MULTIPLIER)
                 color = greenColor;
-            else if (screenPos_Y < 512 && screenPos_Y > 480 && screenPos_X > 0 && screenPos_X < 254)
+            else if (screenPos_Y < 256 * SCREEN_MULTIPLIER && screenPos_Y > 240 * SCREEN_MULTIPLIER && screenPos_X > 0 && screenPos_X < 127 * SCREEN_MULTIPLIER)
                 color = greenColor;
-            else if (screenPos_Y < 512 && screenPos_Y > 480)
+            else if (screenPos_Y < 256 * SCREEN_MULTIPLIER && screenPos_Y > 240 * SCREEN_MULTIPLIER)
                 color = whiteColor2;
-            else if (screenPos_Y < 128 && screenPos_Y > 64)
+            else if (screenPos_Y < 64 * SCREEN_MULTIPLIER && screenPos_Y > 32 * SCREEN_MULTIPLIER)
                 color = redColor;
             else
                 color = whiteColor;
@@ -302,9 +352,6 @@ namespace Invaders
 
         private void HandleKeyDown(SDL.SDL_Keycode key)
         {
-            uint keyValue = GetKeyValue(key);
-            if (keyValue == 99) return; // Unknown key
-            
             if (key == SDL.SDL_Keycode.SDLK_ESCAPE)
             {
                 Console.WriteLine("\nEscape pressed. Exiting...");
@@ -312,6 +359,21 @@ namespace Invaders
                 cpu?.Stop();
                 return;
             }
+            
+            if (key == SDL.SDL_Keycode.SDLK_LEFTBRACKET)
+            {
+                ResizeDisplay(SCREEN_MULTIPLIER - 1);
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_RIGHTBRACKET)
+            {
+                ResizeDisplay(SCREEN_MULTIPLIER + 1);
+                return;
+            }
+            
+            uint keyValue = GetKeyValue(key);
+            if (keyValue == 99) return; // Unknown key
             
             KeyPressed(keyValue);
         }
