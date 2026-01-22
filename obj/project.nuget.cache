@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "dgSpecHash": "sdB8w51WwjI=",
+  "success": true,
+  "projectFilePath": "/Users/jamesbooth/Repo/SpaceInvaders/SpaceInvaders.csproj",
+  "expectedPackageFiles": [
+    "/Users/jamesbooth/.nuget/packages/csfml/3.0.0/csfml.3.0.0.nupkg.sha512",
+    "/Users/jamesbooth/.nuget/packages/microsoft.win32.systemevents/10.0.2/microsoft.win32.systemevents.10.0.2.nupkg.sha512",
+    "/Users/jamesbooth/.nuget/packages/sdl2-cs/2.0.0/sdl2-cs.2.0.0.nupkg.sha512",
+    "/Users/jamesbooth/.nuget/packages/sfml.audio/3.0.0/sfml.audio.3.0.0.nupkg.sha512",
+    "/Users/jamesbooth/.nuget/packages/sfml.graphics/3.0.0/sfml.graphics.3.0.0.nupkg.sha512",
+    "/Users/jamesbooth/.nuget/packages/sfml.net/3.0.0/sfml.net.3.0.0.nupkg.sha512",
+    "/Users/jamesbooth/.nuget/packages/sfml.system/3.0.0/sfml.system.3.0.0.nupkg.sha512",
+    "/Users/jamesbooth/.nuget/packages/sfml.window/3.0.0/sfml.window.3.0.0.nupkg.sha512",
+    "/Users/jamesbooth/.nuget/packages/system.drawing.common/10.0.2/system.drawing.common.10.0.2.nupkg.sha512",
+    "/Users/jamesbooth/.nuget/packages/microsoft.windowsdesktop.app.ref/9.0.1/microsoft.windowsdesktop.app.ref.9.0.1.nupkg.sha512"
+  ],
+  "logs": []
+}
