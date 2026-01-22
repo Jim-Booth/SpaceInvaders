@@ -94,7 +94,7 @@ namespace Invaders
             }
 
             window = SDL.SDL_CreateWindow(
-                "Space Invaders",
+                "Space Invaders - Taito",
                 SDL.SDL_WINDOWPOS_CENTERED,
                 SDL.SDL_WINDOWPOS_CENTERED,
                 SCREEN_WIDTH * SCREEN_MULTIPLIER,
