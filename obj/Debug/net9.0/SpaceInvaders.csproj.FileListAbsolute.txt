@@ -126,3 +126,4 @@
 /Users/jamesbooth/Repo/SpaceInvaders/bin/Debug/net9.0/runtimes/win-x86/native/sfml-system-3.dll
 /Users/jamesbooth/Repo/SpaceInvaders/bin/Debug/net9.0/runtimes/win-x86/native/sfml-window-3.dll
 /Users/jamesbooth/Repo/SpaceInvaders/bin/Debug/net9.0/runtimes/win-x86/native/vcruntime140.dll
+/Users/jamesbooth/Repo/SpaceInvaders/obj/Debug/net9.0/SpaceInvaders.sourcelink.json

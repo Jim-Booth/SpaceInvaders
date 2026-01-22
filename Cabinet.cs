@@ -23,6 +23,8 @@ namespace Invaders
         
         private IntPtr window;
         private IntPtr renderer;
+        private IntPtr texture;
+        private readonly uint[] pixelBuffer;
         private static readonly string appPath = AppDomain.CurrentDomain.BaseDirectory;
 
         private readonly CachedSound ufo_lowpitch = new(Path.Combine(appPath, "SOUNDS", "ufo_lowpitch.wav"));
@@ -43,6 +45,7 @@ namespace Invaders
 
         public Cabinet()
         {
+            pixelBuffer = new uint[SCREEN_WIDTH * SCREEN_HEIGHT];
             InitializeSDL();
         }
 
@@ -71,6 +74,20 @@ namespace Invaders
             if (renderer == IntPtr.Zero)
             {
                 throw new Exception($"Renderer could not be created! SDL_Error: {SDL.SDL_GetError()}");
+            }
+
+            // Create streaming texture for pixel-perfect rendering
+            texture = SDL.SDL_CreateTexture(
+                renderer,
+                SDL.SDL_PIXELFORMAT_ARGB8888,
+                (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
+                SCREEN_WIDTH,
+                SCREEN_HEIGHT
+            );
+            
+            if (texture == IntPtr.Zero)
+            {
+                throw new Exception($"Texture could not be created! SDL_Error: {SDL.SDL_GetError()}");
             }
         }
 
@@ -103,7 +120,14 @@ namespace Invaders
                     }
                 }
                 
-                Thread.Sleep(16); // ~60 FPS event polling
+                try
+                {
+                    Task.Delay(16, CancellationTokenSource.Token).Wait(); // ~60 FPS event polling
+                }
+                catch (AggregateException) when (CancellationTokenSource.Token.IsCancellationRequested)
+                {
+                    // Expected when cancellation is triggered
+                }
             }
             
             // Wait for threads to finish
@@ -115,6 +139,8 @@ namespace Invaders
             AudioPlaybackEngine.Instance.Dispose();
             
             // Cleanup SDL
+            if (texture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(texture);
             if (renderer != IntPtr.Zero)
                 SDL.SDL_DestroyRenderer(renderer);
             if (window != IntPtr.Zero)
@@ -132,7 +158,17 @@ namespace Invaders
             cpu.Memory.LoadFromFile(Path.Combine(appPath, "ROMS", "invaders.f"), 0x1000, 0x800); // invaders.f 1000 - 17FF
             cpu.Memory.LoadFromFile(Path.Combine(appPath, "ROMS", "invaders.e"), 0x1800, 0x800); // invaders.e 1800 - 1FFF
 
-            cpu_thread = new Thread(() => cpu!.Start())
+            cpu_thread = new Thread(async () => 
+            {
+                try
+                {
+                    await cpu!.StartAsync(CancellationTokenSource.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Expected on shutdown
+                }
+            })
             {
                 Priority = ThreadPriority.Highest
             };
@@ -159,13 +195,20 @@ namespace Invaders
             sound_thread.Start();
         }
 
-        private void PortThread()
+        private async void PortThread()
         {
             while (!portLoop.IsCancellationRequested)
             {
                 while (cpu!.PortIn == inputPorts)
                 {
-                    Thread.Sleep(4);
+                    try
+                    {
+                        await Task.Delay(4, portLoop);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
                 }
                 cpu.PortIn = inputPorts;
             }
@@ -178,9 +221,8 @@ namespace Invaders
                 cpu!.DisplayTiming.WaitOne();
                 try
                 {
-                    // Clear the renderer
-                    SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-                    SDL.SDL_RenderClear(renderer);
+                    // Clear pixel buffer (black background)
+                    Array.Clear(pixelBuffer, 0, pixelBuffer.Length);
 
                     int ptr = 0;
                     for (int x = 0; x < SCREEN_WIDTH; x += 2)
@@ -193,22 +235,38 @@ namespace Invaders
                                 if ((value & (1 << b)) != 0)
                                 {
                                     int pixelY = y - (b * 2);
-                                    SDL.SDL_Color color = GetSDLColor(x, y);
-                                    SDL.SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+                                    uint colorValue = GetColorValue(x, y);
                                     
-                                    SDL.SDL_Rect rect = new SDL.SDL_Rect
+                                    // Draw 2x2 pixel block
+                                    int bufferIndex = pixelY * SCREEN_WIDTH + x;
+                                    if (bufferIndex >= 0 && bufferIndex < pixelBuffer.Length)
                                     {
-                                        x = x,
-                                        y = pixelY,
-                                        w = 2,
-                                        h = 2
-                                    };
-                                    SDL.SDL_RenderFillRect(renderer, ref rect);
+                                        pixelBuffer[bufferIndex] = colorValue;
+                                        pixelBuffer[bufferIndex + 1] = colorValue;
+                                        if (pixelY + 1 < SCREEN_HEIGHT)
+                                        {
+                                            pixelBuffer[bufferIndex + SCREEN_WIDTH] = colorValue;
+                                            pixelBuffer[bufferIndex + SCREEN_WIDTH + 1] = colorValue;
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
 
+                    // Update texture with pixel buffer
+                    unsafe
+                    {
+                        fixed (uint* pixels = pixelBuffer)
+                        {
+                            SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = SCREEN_WIDTH, h = SCREEN_HEIGHT };
+                            SDL.SDL_UpdateTexture(texture, ref fullRect, (IntPtr)pixels, SCREEN_WIDTH * sizeof(uint));
+                        }
+                    }
+
+                    // Render texture to screen
+                    SDL.SDL_RenderClear(renderer);
+                    SDL.SDL_RenderCopy(renderer, texture, IntPtr.Zero, IntPtr.Zero);
                     SDL.SDL_RenderPresent(renderer);
                 }
                 catch { }
@@ -222,6 +280,24 @@ namespace Invaders
             if ((screenPos_Y < 512 && screenPos_Y > 480) && (screenPos_X > 0 && screenPos_X < 254)) return greenColor;
             if (screenPos_Y < 128 && screenPos_Y > 64) return redColor;
             return whiteColor;
+        }
+
+        private static uint GetColorValue(int screenPos_X, int screenPos_Y)
+        {
+            // Convert SDL_Color to ARGB8888 format (0xAARRGGBB)
+            SDL.SDL_Color color;
+            if (screenPos_Y < 478 && screenPos_Y > 390)
+                color = greenColor;
+            else if (screenPos_Y < 512 && screenPos_Y > 480 && screenPos_X > 0 && screenPos_X < 254)
+                color = greenColor;
+            else if (screenPos_Y < 512 && screenPos_Y > 480)
+                color = whiteColor2;
+            else if (screenPos_Y < 128 && screenPos_Y > 64)
+                color = redColor;
+            else
+                color = whiteColor;
+            
+            return ((uint)color.a << 24) | ((uint)color.r << 16) | ((uint)color.g << 8) | color.b;
         }
 
         private void HandleKeyDown(SDL.SDL_Keycode key)

@@ -77,21 +77,21 @@ namespace Invaders.MAINBOARD
             registers.PC = 0x0000;
         }
 
-        public void Start()
+        public async Task StartAsync(CancellationToken cancellationToken = default)
         {
             running = true;
-            while (running)
+            while (running && !cancellationToken.IsCancellationRequested)
             {
                 frameTiming.Restart();// frame start
                 ExecuteCycles(HALF_FRAME_CYCLES_MAX);// 1st half of frame
                 Interrupt(1);// mid screen Interrupt
                 ExecuteCycles(HALF_FRAME_CYCLES_MAX); // 2nd half of frame
                 Interrupt(2);// full screen interrupt
-                Array.Copy(memory.GetMemory, videoStartAddress, video, 0, video.Length); // draw the video
+                Buffer.BlockCopy(memory.GetMemory, (int)videoStartAddress, video, 0, video.Length); // draw the video
                 displayTiming.Set();// signal the display to draw (non blocking)
-                int mS = (FRAME_TIME_MS - (int)frameTiming.ElapsedMilliseconds) ;
+                int mS = (FRAME_TIME_MS - (int)frameTiming.ElapsedMilliseconds);
                 if (mS > 0)
-                    Thread.Sleep(mS);
+                    await Task.Delay(mS, cancellationToken);
             }
         }
 
