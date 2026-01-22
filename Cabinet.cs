@@ -137,7 +137,7 @@ namespace Invaders
             
             // Monitor for SDL events
             Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, ESC=Exit");
-            Console.WriteLine("Scale: [=Decrease (1x-4x), ]=Increase (1x-4x), Current=3x");
+            Console.WriteLine("Scale: [=Decrease (1x-4x), ]=Increase (1x-4x), Default=2x");
             SDL.SDL_Event sdlEvent;
             while (!CancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -264,8 +264,8 @@ namespace Invaders
                 {
                     try
                     {
-                        // Clear pixel buffer (black background)
-                        Array.Clear(pixelBuffer, 0, pixelBuffer.Length);
+                    // Clear pixel buffer (black background)
+                    Array.Clear(pixelBuffer, 0, pixelBuffer.Length);
 
                     int ptr = 0;
                     int scaledWidth = SCREEN_WIDTH * SCREEN_MULTIPLIER;
@@ -281,8 +281,6 @@ namespace Invaders
                                 {
                                     int pixelY = y - (b * SCREEN_MULTIPLIER);
                                     uint colorValue = GetColorValue(x, y);
-                                    
-                                    // Draw SCREEN_MULTIPLIER x SCREEN_MULTIPLIER pixel block
                                     int bufferIndex = pixelY * scaledWidth + x;
                                     if (bufferIndex >= 0 && bufferIndex < pixelBuffer.Length)
                                     {
