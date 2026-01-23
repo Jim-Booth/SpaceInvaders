@@ -36,4 +36,10 @@
     </None>
   </ItemGroup>
 
+  <!-- Create symlink to SDL2 native library on macOS after build -->
+  <Target Name="LinkSDL2" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <Exec Command="mkdir -p $(OutputPath)runtimes/osx-arm64/native" />
+    <Exec Command="ln -sf /opt/homebrew/lib/libSDL2.dylib $(OutputPath)runtimes/osx-arm64/native/libSDL2.dylib" />
+  </Target>
+
 </Project>
