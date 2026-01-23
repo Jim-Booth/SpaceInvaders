@@ -373,12 +373,12 @@ namespace SpaceInvaders
                     // Render game texture on top (with alpha blending - transparent pixels show background)
                     SDL.SDL_RenderCopy(renderer, texture, IntPtr.Zero, IntPtr.Zero);
                     
-                    // Draw CRT scanlines for authentic appearance
+                    // Draw CRT scanlines for authentic appearance (vertical due to rotated CRT)
                     SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-                    SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 90); // Semi-transparent black
-                    for (int y = 0; y < scaledHeight; y += SCREEN_MULTIPLIER)
+                    SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 40); // Subtle semi-transparent black
+                    for (int x = 0; x < scaledWidth; x += SCREEN_MULTIPLIER)
                     {
-                        SDL.SDL_RenderDrawLine(renderer, 0, y, scaledWidth, y);
+                        SDL.SDL_RenderDrawLine(renderer, x, 0, x, scaledHeight);
                     }
                     
                     // Draw overlay message if active
