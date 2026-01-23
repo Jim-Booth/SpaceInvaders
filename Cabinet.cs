@@ -25,6 +25,7 @@ namespace SpaceInvaders
         private IntPtr window;
         private IntPtr renderer;
         private IntPtr texture;
+        private IntPtr backgroundTexture;
         private uint[] pixelBuffer;
         private static readonly string appPath = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -48,6 +49,32 @@ namespace SpaceInvaders
         {
             pixelBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
             InitializeSDL();
+            LoadBackgroundTexture();
+        }
+
+        private void LoadBackgroundTexture()
+        {
+            string backgroundPath = Path.Combine(appPath, "Cabinet.bmp");
+            if (!File.Exists(backgroundPath))
+            {
+                return;
+            }
+
+            IntPtr surface = SDL.SDL_LoadBMP(backgroundPath);
+            
+            if (surface == IntPtr.Zero)
+            {
+                return;
+            }
+
+            backgroundTexture = SDL.SDL_CreateTextureFromSurface(renderer, surface);
+            SDL.SDL_FreeSurface(surface);
+
+            if (backgroundTexture != IntPtr.Zero)
+            {
+                // Ensure background renders without blending (fully opaque)
+                SDL.SDL_SetTextureBlendMode(backgroundTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_NONE);
+            }
         }
 
         private void ResizeDisplay(int newMultiplier)
@@ -79,6 +106,9 @@ namespace SpaceInvaders
                 {
                     throw new Exception($"Texture could not be created! SDL_Error: {SDL.SDL_GetError()}");
                 }
+                
+                // Enable alpha blending on the game texture so background shows through
+                SDL.SDL_SetTextureBlendMode(texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
                 
                 // Resize window
                 SDL.SDL_SetWindowSize(window, SCREEN_WIDTH * SCREEN_MULTIPLIER, SCREEN_HEIGHT * SCREEN_MULTIPLIER);
@@ -128,6 +158,9 @@ namespace SpaceInvaders
             {
                 throw new Exception($"Texture could not be created! SDL_Error: {SDL.SDL_GetError()}");
             }
+            
+            // Enable alpha blending on the game texture so background shows through
+            SDL.SDL_SetTextureBlendMode(texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
         }
 
         public void Start()
@@ -181,6 +214,8 @@ namespace SpaceInvaders
             // Cleanup SDL
             if (texture != IntPtr.Zero)
                 SDL.SDL_DestroyTexture(texture);
+            if (backgroundTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(backgroundTexture);
             if (renderer != IntPtr.Zero)
                 SDL.SDL_DestroyRenderer(renderer);
             if (window != IntPtr.Zero)
@@ -263,7 +298,7 @@ namespace SpaceInvaders
                 {
                     try
                     {
-                    // Clear pixel buffer (black background)
+                    // Clear pixel buffer (fully transparent - alpha = 0)
                     Array.Clear(pixelBuffer, 0, pixelBuffer.Length);
 
                     int ptr = 0;
@@ -309,8 +344,17 @@ namespace SpaceInvaders
                         }
                     }
 
-                    // Render texture to screen
+                    // Clear renderer to black first
+                    SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
                     SDL.SDL_RenderClear(renderer);
+                    
+                    // Render background texture first (scaled to window size)
+                    if (backgroundTexture != IntPtr.Zero)
+                    {
+                        SDL.SDL_RenderCopy(renderer, backgroundTexture, IntPtr.Zero, IntPtr.Zero);
+                    }
+                    
+                    // Render game texture on top (with alpha blending - transparent pixels show background)
                     SDL.SDL_RenderCopy(renderer, texture, IntPtr.Zero, IntPtr.Zero);
                     
                     // Draw CRT scanlines for authentic appearance

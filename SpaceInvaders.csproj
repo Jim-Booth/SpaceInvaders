@@ -15,4 +15,25 @@
     <PackageReference Include="System.Drawing.Common" Version="10.0.2" />
   </ItemGroup>
 
+  <!-- Copy Cabinet.bmp to output directory -->
+  <ItemGroup>
+    <None Update="Cabinet.bmp">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Copy all files in SOUNDS folder -->
+  <ItemGroup>
+    <None Update="SOUNDS\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Copy all files in ROMS folder -->
+  <ItemGroup>
+    <None Update="ROMS\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
