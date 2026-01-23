@@ -1,3 +1,14 @@
+// ============================================================================
+// Project:     SpaceInvaders
+// File:        Flags.cs
+// Description: CPU status flags (Zero, Sign, Parity, Carry, Auxiliary Carry)
+//              with update methods
+// Author:      James Booth
+// Created:     2024
+// License:     MIT License - See LICENSE file in the project root
+// Copyright:   (c) 2024-2026 James Booth
+// ============================================================================
+
 namespace SpaceInvaders.MAINBOARD
 {
     internal class Flags

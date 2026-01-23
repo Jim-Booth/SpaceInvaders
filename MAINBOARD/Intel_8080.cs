@@ -1,5 +1,15 @@
+// ============================================================================
+// Project:     SpaceInvaders
+// File:        Intel_8080.cs
+// Description: Intel 8080 CPU emulator core with full opcode implementation,
+//              interrupt handling, and cycle-accurate timing
+// Author:      James Booth
+// Created:     2024
+// License:     MIT License - See LICENSE file in the project root
+// Copyright:   (c) 2024-2026 James Booth
+// ============================================================================
 
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 namespace SpaceInvaders.MAINBOARD
 {

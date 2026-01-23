@@ -1,3 +1,14 @@
+// ============================================================================
+// Project:     SpaceInvaders
+// File:        Cabinet.cs
+// Description: Arcade cabinet simulation with SDL2 rendering, input handling,
+//              display threading, and audio playback
+// Author:      James Booth
+// Created:     2024
+// License:     MIT License - See LICENSE file in the project root
+// Copyright:   (c) 2024-2026 James Booth
+// ============================================================================
+
 using SpaceInvaders.MAINBOARD;
 using SDL2;
 

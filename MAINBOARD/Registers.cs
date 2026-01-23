@@ -1,3 +1,14 @@
+// ============================================================================
+// Project:     SpaceInvaders
+// File:        Registers.cs
+// Description: CPU register definitions (A, B, C, D, E, H, L, PC, SP) and
+//              register pair accessors
+// Author:      James Booth
+// Created:     2024
+// License:     MIT License - See LICENSE file in the project root
+// Copyright:   (c) 2024-2026 James Booth
+// ============================================================================
+
 namespace SpaceInvaders.MAINBOARD
 {
     internal class Registers
