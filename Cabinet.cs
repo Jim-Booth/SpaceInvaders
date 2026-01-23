@@ -19,7 +19,7 @@ namespace SpaceInvaders
         private readonly byte[] inputPorts = [0x0E, 0x08, 0x00, 0x00];
         private readonly int SCREEN_WIDTH = 223;
         private readonly int SCREEN_HEIGHT = 256;
-        private int SCREEN_MULTIPLIER = 2;
+        private int SCREEN_MULTIPLIER = 3;
         private readonly object resizeLock = new();
         
         private IntPtr window;
@@ -52,7 +52,7 @@ namespace SpaceInvaders
 
         private void ResizeDisplay(int newMultiplier)
         {
-            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == SCREEN_MULTIPLIER)
+            if (newMultiplier < 2 || newMultiplier > 4 || newMultiplier == SCREEN_MULTIPLIER)
                 return;
 
             lock (resizeLock)
