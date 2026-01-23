@@ -110,5 +110,3 @@ Space Invaders is © Taito Corporation. This emulator is for educational purpose
 - Original Space Invaders by Tomohiro Nishikado (Taito, 1978)
 - Intel 8080 documentation and reference materials
 - SDL2 and SFML libraries
-
-<img width="781" height="908" alt="image" src="https://github.com/user-attachments/assets/d72af242-c503-4cf6-9ec4-d28867e61703" />
