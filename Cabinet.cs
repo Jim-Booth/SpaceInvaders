@@ -27,6 +27,9 @@ namespace SpaceInvaders
         private IntPtr texture;
         private IntPtr backgroundTexture;
         private bool backgroundEnabled = true;
+        private bool soundEnabled = true;
+        private string? overlayMessage = null;
+        private DateTime overlayMessageEndTime;
         private uint[] pixelBuffer;
         private static readonly string appPath = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -171,7 +174,7 @@ namespace SpaceInvaders
             
             // Monitor for SDL events
             Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, ESC=Exit");
-            Console.WriteLine("Scale: [=Decrease (2x-4x), ]=Increase (2x-4x), B=Toggle Background");
+            Console.WriteLine("Scale: [=Decrease (2x-4x), ]=Increase (2x-4x), B=Toggle Background, S=Toggle Sound");
             SDL.SDL_Event sdlEvent;
             while (!CancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -367,6 +370,16 @@ namespace SpaceInvaders
                         SDL.SDL_RenderDrawLine(renderer, 0, y, scaledWidth, y);
                     }
                     
+                    // Draw overlay message if active
+                    if (overlayMessage != null && DateTime.Now < overlayMessageEndTime)
+                    {
+                        DrawOverlayMessage(scaledWidth, scaledHeight);
+                    }
+                    else if (overlayMessage != null)
+                    {
+                        overlayMessage = null;
+                    }
+                    
                     SDL.SDL_RenderPresent(renderer);
                     }
                     catch { }
@@ -421,6 +434,14 @@ namespace SpaceInvaders
                 return;
             }
             
+            if (key == SDL.SDL_Keycode.SDLK_s)
+            {
+                soundEnabled = !soundEnabled;
+                overlayMessage = soundEnabled ? "sound:on" : "sound:off";
+                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                return;
+            }
+            
             uint keyValue = GetKeyValue(key);
             if (keyValue == 99) return; // Unknown key
             
@@ -463,7 +484,7 @@ namespace SpaceInvaders
             while (!soundLoop.IsCancellationRequested)
             {
                 cpu!.SoundTiming.WaitOne();
-                if (prevPort3 != cpu!.PortOut[3])
+                if (soundEnabled && prevPort3 != cpu!.PortOut[3])
                 {
                     if (((cpu.PortOut[3] & 0x01) == 0x01) && ((cpu.PortOut[3] & 0x01) != (prevPort3 & 0x01)))
                         AudioPlaybackEngine.Instance.PlaySound(ufo_lowpitch);
@@ -475,10 +496,10 @@ namespace SpaceInvaders
                         AudioPlaybackEngine.Instance.PlaySound(invaderkilled);
                     if (((cpu.PortOut[3] & 0x08) == 0x08) && ((cpu.PortOut[3] & 0x10) != (prevPort3 & 0x10)))
                         AudioPlaybackEngine.Instance.PlaySound(extendedplay);
-                    prevPort3 = cpu!.PortOut[3];
                 }
+                prevPort3 = cpu!.PortOut[3];
 
-                if (prevPort5 != cpu.PortOut[5])
+                if (soundEnabled && prevPort5 != cpu.PortOut[5])
                 {
                     if (((cpu.PortOut[5] & 0x01) == 0x01) && ((cpu.PortOut[5] & 0x01) != (prevPort5 & 0x01)))
                         AudioPlaybackEngine.Instance.PlaySound(fastinvader1);
@@ -490,11 +511,81 @@ namespace SpaceInvaders
                         AudioPlaybackEngine.Instance.PlaySound(fastinvader4);
                     if (((cpu.PortOut[5] & 0x10) == 0x10) && ((cpu.PortOut[5] & 0x10) != (prevPort5 & 0x10)))
                         AudioPlaybackEngine.Instance.PlaySound(explosion);
-                    prevPort5 = cpu!.PortOut[5];
                 }
+                prevPort5 = cpu!.PortOut[5];
                 Thread.Sleep(4);
             }
        }
+
+        private void DrawOverlayMessage(int screenWidth, int screenHeight)
+        {
+            if (overlayMessage == null) return;
+            
+            // Character dimensions (scaled)
+            int charWidth = 5 * SCREEN_MULTIPLIER;
+            int charHeight = 7 * SCREEN_MULTIPLIER;
+            int charSpacing = 1 * SCREEN_MULTIPLIER;
+            int totalWidth = overlayMessage.Length * (charWidth + charSpacing) - charSpacing;
+            
+            // Center position
+            int startX = (screenWidth - totalWidth) / 2;
+            int startY = (screenHeight - charHeight) / 2;
+            
+            // Draw semi-transparent background box
+            SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180);
+            SDL.SDL_Rect bgRect = new SDL.SDL_Rect
+            {
+                x = startX - 10 * SCREEN_MULTIPLIER,
+                y = startY - 5 * SCREEN_MULTIPLIER,
+                w = totalWidth + 20 * SCREEN_MULTIPLIER,
+                h = charHeight + 10 * SCREEN_MULTIPLIER
+            };
+            SDL.SDL_RenderFillRect(renderer, ref bgRect);
+            
+            // Draw each character
+            SDL.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0x00, 0xFF); // Yellow text
+            for (int i = 0; i < overlayMessage.Length; i++)
+            {
+                int charX = startX + i * (charWidth + charSpacing);
+                DrawChar(overlayMessage[i], charX, startY, SCREEN_MULTIPLIER);
+            }
+        }
+
+        private void DrawChar(char c, int x, int y, int scale)
+        {
+            // Simple 5x7 pixel font for lowercase letters and colon
+            // Bit 4 = leftmost pixel, bit 0 = rightmost pixel
+            byte[] pattern = c switch
+            {
+                's' => [0x0E, 0x11, 0x10, 0x0E, 0x01, 0x11, 0x0E],  // .###. #...# #.... .###. ....# #...# .###.
+                'o' => [0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],  // .###. #...# #...# #...# #...# #...# .###.
+                'u' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],  // #...# #...# #...# #...# #...# #...# .###.
+                'n' => [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],  // #...# ##..# #.#.# #..## #...# #...# #...#
+                'd' => [0x1C, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1C],  // ###.. #..#. #...# #...# #...# #..#. ###..
+                'f' => [0x07, 0x08, 0x08, 0x1E, 0x08, 0x08, 0x08],  // ..### #.... #.... ####. #.... #.... #....
+                ':' => [0x00, 0x04, 0x04, 0x00, 0x04, 0x04, 0x00],  // ..... ..#.. ..#.. ..... ..#.. ..#.. .....
+                _ => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
+            };
+            
+            for (int row = 0; row < 7; row++)
+            {
+                for (int col = 0; col < 5; col++)
+                {
+                    if ((pattern[row] & (0x10 >> col)) != 0)
+                    {
+                        SDL.SDL_Rect pixelRect = new SDL.SDL_Rect
+                        {
+                            x = x + col * scale,
+                            y = y + row * scale,
+                            w = scale,
+                            h = scale
+                        };
+                        SDL.SDL_RenderFillRect(renderer, ref pixelRect);
+                    }
+                }
+            }
+        }
 
         private void KeyPressed(uint key)
         {

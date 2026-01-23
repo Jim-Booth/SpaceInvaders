@@ -43,6 +43,7 @@ dotnet run
 | **[** | Decrease scale (2x-4x) |
 | **]** | Increase scale (2x-4x) |
 | **B** | Toggle background texture |
+| **S** | Toggle sound on/off |
 | **ESC** | Exit |
 
 ## ROM Files

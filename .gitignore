@@ -62,3 +62,4 @@ _ReSharper*/
 
 # macOS
 .DS_Store
+.github/copilot-instructions.md
