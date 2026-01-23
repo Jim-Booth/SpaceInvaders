@@ -1,126 +1,109 @@
-# SpaceInvaders
+# Space Invaders - Intel 8080 Emulator
 
-A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 C#.
+A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and C#.
+
+![Space Invaders](https://img.shields.io/badge/.NET-9.0-512BD4) ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey)
 
 ## Features
 
-- Full Intel 8080 CPU emulation with all 244 opcodes
-- SDL2-based hardware-accelerated texture rendering
-- Cross-platform audio with SFML.Net
-- Accurate Space Invaders arcade hardware simulation
-- Color overlay zones (green, red, white) scaled to display size
-- Original arcade sound effects
-- CRT display effects (linear texture filtering + scanlines)
-- **Dynamic runtime window scaling** (1x to 4x) with keyboard controls
-- Optimized memory operations using Buffer.BlockCopy
-- Async/await architecture with proper cancellation support
+- **Accurate Intel 8080 CPU emulation** - Full implementation of all 8080 opcodes
+- **Authentic display rendering** - Color zones matching original arcade cabinet (green, red, white)
+- **CRT scanline effect** - Optional scanline overlay for authentic appearance
+- **Background texture support** - Overlay game on custom cabinet artwork
+- **Original sound effects** - All arcade sounds via SFML audio
+- **Scalable display** - 2x to 4x resolution scaling
+- **Cross-platform** - Runs on Windows, macOS, and Linux
 
-## Requirements
+## Prerequisites
 
-- .NET 9 SDK
-- SDL2 library (installed via Homebrew on macOS: `brew install sdl2`)
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
+- SDL2 library
+  - **macOS**: `brew install sdl2`
+  - **Linux**: `sudo apt install libsdl2-dev`
+  - **Windows**: SDL2.dll included or download from [libsdl.org](https://www.libsdl.org/)
 
-## Build
+## Build and Run
 
 ```bash
 dotnet build
-```
-
-## Run
-
-```bash
 dotnet run
 ```
 
 ## Controls
 
-### Game Controls
-- **C** - Insert Coin
-- **1** - 1 Player Start
-- **2** - 2 Player Start
-- **Arrow Keys** - Player 1 Movement (Left/Right)
-- **Space** - Player 1 Fire
-- **A/D** - Player 2 Movement (Left/Right)
-- **W** - Player 2 Fire
-- **O/P** - Easter Eggs
-- **T** - Tilt
+| Key | Action |
+|-----|--------|
+| **C** | Insert Coin |
+| **1** | 1 Player Start |
+| **2** | 2 Player Start |
+| **←** / **→** | Move (Player 1) |
+| **Space** | Fire (Player 1) |
+| **A** / **D** | Move (Player 2) |
+| **W** | Fire (Player 2) |
+| **[** | Decrease scale (2x-4x) |
+| **]** | Increase scale (2x-4x) |
+| **B** | Toggle background texture |
+| **ESC** | Exit |
 
-### Display Controls
-- **[** - Decrease window scale (minimum 1x = 223x256)
-- **]** - Increase window scale (maximum 4x = 892x1024)
-- **ESC** - Exit Game
+## ROM Files
+
+Place the following ROM files in the `ROMS/` directory:
+
+| File | Address Range |
+|------|---------------|
+| `invaders.h` | 0x0000 - 0x07FF |
+| `invaders.g` | 0x0800 - 0x0FFF |
+| `invaders.f` | 0x1000 - 0x17FF |
+| `invaders.e` | 0x1800 - 0x1FFF |
+
+## Sound Files
+
+Place WAV sound files in the `SOUNDS/` directory:
+
+- `ufo_lowpitch.wav`
+- `shoot.wav`
+- `explosion.wav`
+- `invaderkilled.wav`
+- `fastinvader1.wav` - `fastinvader4.wav`
+- `extendedPlay.wav`
+
+## Background Texture
+
+Place a `Cabinet.bmp` file in the application directory to display a background image behind the game. Press **B** to toggle visibility at runtime.
 
 ## Project Structure
 
-- `Program.cs` - Main entry point
-- `Cabinet.cs` - Arcade cabinet simulation and main game loop
-- `SDL2.cs` - SDL2 bindings for graphics
-- `LPUtf8StrMarshaler.cs` - SDL2 string marshaling
-- `SpaceInvaders.csproj` - Project configuration
-- `MAINBOARD/` - Intel 8080 CPU emulation
-  - `Intel_8080.cs` - CPU implementation
-  - `Memory.cs` - Memory management
-  - `Registers.cs` - CPU registers
-  - `Flags.cs` - CPU flags
-  - `Audio.cs` - Audio playback engine
-- `ROMS/` - Space Invaders ROM files
-- `SOUNDS/` - Game sound effects
-
-## Dependencies
-
-- **SDL2-CS** (2.0.0) - SDL2 bindings for .NET
-- **SFML.Net** (3.0.0) - Cross-platform audio
-- **System.Drawing.Common** (10.0.2) - Graphics support
-
-## Platform Notes
-
-### macOS
-
-1. Install SDL2: `brew install sdl2`
-2. The SDL2 library will be automatically copied to the build output
-3. Audio works out of the box with SFML.Net
-
-### Windows
-
-SDL2.dll and SFML audio libraries are included in the NuGet packages.
-
-### Linux
-
-Install SDL2 via your package manager (e.g., `sudo apt install libsdl2-2.0-0`).
+```
+SpaceInvaders/
+├── Program.cs              # Entry point
+├── Cabinet.cs              # Arcade cabinet simulation, SDL2 rendering
+├── MAINBOARD/
+│   ├── Intel_8080.cs       # CPU emulation core
+│   ├── Memory.cs           # 64KB addressable memory
+│   ├── Registers.cs        # CPU registers
+│   ├── Flags.cs            # Status flags (Z, S, P, CY, AC)
+│   └── Audio.cs            # SFML audio playback
+├── ROMS/                   # ROM files (not included)
+├── SOUNDS/                 # Sound effect WAV files
+└── Cabinet.bmp             # Optional background texture
+```
 
 ## Technical Details
 
-### CPU Emulation
-- **Processor**: Intel 8080 at 2 MHz (original arcade speed)
-- **Cycle Accuracy**: Per-instruction cycle counting for precise timing
-- **Memory**: 64KB addressable space with 7KB video RAM (0x2400-0x3FFF)
-- **Interrupts**: Mid-screen (RST 1) and full-screen (RST 2) interrupts at 60 Hz
+- **CPU Clock**: 2 MHz emulated
+- **Display**: 224x256 rotated 90° (renders as 256x224)
+- **Refresh Rate**: 60 Hz with mid-screen and full-screen interrupts
+- **Color Overlay**: Simulates original arcade color gel overlay
+  - Green: Player and shields area
+  - Red: UFO area at top
+  - White: Middle play area
 
-### Display System
-- **Base Resolution**: 223x256 pixels (original arcade resolution)
-- **Scaling**: Dynamic 1x to 4x multiplier (223x256 to 892x1024)
-- **Default Scale**: 3x (669x768 window)
-- **Refresh Rate**: 60 Hz synchronized with CPU timing
-- **Graphics Pipeline**: CPU video RAM → pixel buffer → SDL2 texture → hardware-accelerated rendering
-- **Color Zones**: Authentic arcade color overlay (green bottom, red top, white middle)
-- **CRT Effects**: Linear texture filtering with scanlines (alpha 90, spacing scales with window size)
-- **Pixel Format**: ARGB8888 (32-bit color)
+## License
 
-### Audio System
-- **Engine**: SFML.Net with sound caching
-- **Files**: Original arcade WAV files
-- **Platform**: Cross-platform (Windows/macOS/Linux)
-- **Fallback**: Silent mode if audio unavailable
+This project is for educational purposes. Space Invaders is © Taito Corporation.
 
-### Performance Optimizations
-- **Memory Operations**: Buffer.BlockCopy for 10-15% improvement over Array.Copy
-- **Texture Rendering**: Single texture update per frame (50-70% improvement over rect fills)
-- **Frame Timing**: Task.Delay with CancellationToken for precise 16.7ms frame timing
-- **Thread Safety**: Lock-based synchronization for runtime resource recreation
+## Acknowledgments
 
-### Threading Architecture
-- **CPU Thread**: Executes 8080 instructions with cycle-accurate timing
-- **Display Thread**: SDL2 rendering at 60 Hz with CRT effects
-- **Sound Thread**: Audio event processing with sound caching
-- **Port Thread**: Input port synchronization
-- **Main Thread**: SDL event loop and keyboard input handling
+- Original Space Invaders by Tomohiro Nishikado (Taito, 1978)
+- Intel 8080 documentation and reference materials
+- SDL2 and SFML libraries

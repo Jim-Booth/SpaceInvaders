@@ -26,6 +26,7 @@ namespace SpaceInvaders
         private IntPtr renderer;
         private IntPtr texture;
         private IntPtr backgroundTexture;
+        private bool backgroundEnabled = true;
         private uint[] pixelBuffer;
         private static readonly string appPath = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -169,7 +170,7 @@ namespace SpaceInvaders
             
             // Monitor for SDL events
             Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, ESC=Exit");
-            Console.WriteLine("Scale: [=Decrease (1x-4x), ]=Increase (1x-4x), Default=2x");
+            Console.WriteLine("Scale: [=Decrease (2x-4x), ]=Increase (2x-4x), B=Toggle Background");
             SDL.SDL_Event sdlEvent;
             while (!CancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -348,8 +349,8 @@ namespace SpaceInvaders
                     SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
                     SDL.SDL_RenderClear(renderer);
                     
-                    // Render background texture first (scaled to window size)
-                    if (backgroundTexture != IntPtr.Zero)
+                    // Render background texture first (scaled to window size) if enabled
+                    if (backgroundEnabled && backgroundTexture != IntPtr.Zero)
                     {
                         SDL.SDL_RenderCopy(renderer, backgroundTexture, IntPtr.Zero, IntPtr.Zero);
                     }
@@ -410,6 +411,12 @@ namespace SpaceInvaders
             if (key == SDL.SDL_Keycode.SDLK_RIGHTBRACKET)
             {
                 ResizeDisplay(SCREEN_MULTIPLIER + 1);
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_b)
+            {
+                backgroundEnabled = !backgroundEnabled;
                 return;
             }
             

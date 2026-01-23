@@ -34,14 +34,34 @@ This is a cross-platform Intel 8080 Space Invaders arcade emulator built with .N
 - [Audio.cs](../MAINBOARD/Audio.cs) - SFML audio playback engine
 
 ## Game Controls
-- C = Coin, 1/2 = Start, Arrows = Move, Space = Fire, ESC = Exit
-- Full keyboard mapping in `Cabinet.GetKeyValue()`
+- **C** = Insert Coin
+- **1** = 1P Start
+- **2** = 2P Start
+- **Arrow Keys** = Move (1P)
+- **Space** = Fire (1P)
+- **A/D** = Move (2P)
+- **W** = Fire (2P)
+- **ESC** = Exit
+- **[** = Decrease scale (2x-4x)
+- **]** = Increase scale (2x-4x)
+- **B** = Toggle background texture
+
+Full keyboard mapping in `Cabinet.GetKeyValue()`
 
 ## Display System
-- Resolution: 446x512 (2x scaled from 223x256)
-- Color Zones: Green (bottom), Red (top), White (middle)
+- Resolution: 669x768 default (3x scaled from 223x256)
+- Scalable: 2x to 4x multiplier ([ and ] keys)
+- Color Zones: Green (player area), Red (UFO area), White (middle)
+- Background: Optional Cabinet.bmp texture with alpha blending
+- CRT Effect: Scanline overlay for authentic appearance
 - Rendering: SDL2 hardware-accelerated with per-pixel color mapping
 - Refresh: 60 Hz matching original arcade hardware
+
+## Background Texture
+- File: `Cabinet.bmp` in application directory
+- Format: BMP (SDL2 native format)
+- Toggle: Press 'B' key at runtime to show/hide
+- Blending: Game pixels render with alpha transparency over background
 
 ## Audio System
 - Engine: SFML.Net with sound caching
@@ -56,9 +76,15 @@ Located in ROMS/ directory:
 - invaders.f (0x1000-0x17FF)
 - invaders.e (0x1800-0x1FFF)
 
+## Resource Files (Auto-copied on Build)
+The following are automatically copied to the output directory:
+- `Cabinet.bmp` - Background texture
+- `SOUNDS/` - Audio files directory
+- `ROMS/` - ROM files directory
+
 ## Threading Model
-- CPU Thread: Executes 8080 instructions
-- Display Thread: SDL2 rendering at 60 Hz
+- CPU Thread: Executes 8080 instructions at highest priority
+- Display Thread: SDL2 rendering at 60 Hz with resize lock
 - Sound Thread: Audio event processing
 - Port Thread: Input port synchronization
 - Main Thread: SDL event loop and input handling
