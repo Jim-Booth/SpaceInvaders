@@ -1,4 +1,4 @@
-﻿using Invaders;
+﻿using SpaceInvaders;
 
 Cabinet cabinet = new();
 cabinet.Start();

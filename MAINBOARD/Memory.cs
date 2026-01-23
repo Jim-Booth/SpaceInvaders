@@ -1,5 +1,5 @@
 
-﻿namespace Invaders.MAINBOARD
+namespace SpaceInvaders.MAINBOARD
 {
     internal class Memory(long size)
     {

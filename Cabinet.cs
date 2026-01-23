@@ -1,8 +1,7 @@
-using Invaders.MAINBOARD;
+using SpaceInvaders.MAINBOARD;
 using SDL2;
-using static SDL2.SDL;
 
-namespace Invaders
+namespace SpaceInvaders
 {
     public class Cabinet
     {

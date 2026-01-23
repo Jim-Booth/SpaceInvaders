@@ -1,4 +1,4 @@
-namespace Invaders.MAINBOARD
+namespace SpaceInvaders.MAINBOARD
 {
     internal class Flags
     {
@@ -7,15 +7,6 @@ namespace Invaders.MAINBOARD
         private uint p; // Parity bit
         private uint cy; // Carry bit
         private uint ac; // Auxiliary carry bit
-
-        public Flags()
-        {
-            Z = 0;
-            S = 0;
-            P = 0;
-            cy = 0;
-            ac = 0;
-        }
 
         public uint Z
         {
@@ -81,26 +72,6 @@ namespace Invaders.MAINBOARD
             for (total = 0; num > 0; total++)
                 num &= (byte)(num - 1);
             return (uint)(((total % 2) == 0) ? 1 : 0);
-        }
-
-        public byte ToByte()
-        {
-            //fixed val        0 0 1
-            //byte pos       76543210
-            //flag           SZ A P C
-
-            var flags = 0b00000010;
-            if (s == 1)
-                flags |= 0b10000010;
-            if (z == 1)
-                flags |= 0b01000010;
-            if (ac == 1)
-                flags |= 0b00010010;
-            if (p == 1)
-                flags |= 0b00000110;
-            if (cy == 1)
-                flags |= 0b00000011;
-            return (byte)flags;
         }
     }
 }

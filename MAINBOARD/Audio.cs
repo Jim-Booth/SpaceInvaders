@@ -5,25 +5,6 @@ internal class AudioPlaybackEngine : IDisposable
     private readonly List<Sound> activeSounds = new();
     private readonly object soundLock = new();
 
-    public AudioPlaybackEngine(int sampleRate, int channelCount)
-    {
-        // SFML doesn't require explicit initialization for audio playback
-    }
-
-    public void PlaySound(string fileName)
-    {
-        lock (soundLock)
-        {
-            var soundBuffer = new SoundBuffer(fileName);
-            var sound = new Sound(soundBuffer);
-            activeSounds.Add(sound);
-            sound.Play();
-            
-            // Clean up finished sounds
-            activeSounds.RemoveAll(s => s.Status == SoundStatus.Stopped);
-        }
-    }
-
     public void PlaySound(CachedSound cachedSound)
     {
         lock (soundLock)
@@ -50,8 +31,7 @@ internal class AudioPlaybackEngine : IDisposable
         }
     }
 
-    //SampleRate & Channel count values are handled by SFML automatically
-    public static readonly AudioPlaybackEngine Instance = new(11025, 1);
+    public static readonly AudioPlaybackEngine Instance = new();
 }
 
 internal class CachedSound

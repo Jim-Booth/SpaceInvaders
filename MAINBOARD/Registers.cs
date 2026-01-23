@@ -1,4 +1,4 @@
-namespace Invaders.MAINBOARD
+namespace SpaceInvaders.MAINBOARD
 {
     internal class Registers
     {
@@ -12,20 +12,6 @@ namespace Invaders.MAINBOARD
         private uint sp = 0;
         private uint pc = 0;
         private bool int_enable = false;
-
-        public Registers()
-        {
-            a = 0;
-            b = 0;
-            c = 0;
-            d = 0;
-            e = 0;
-            h = 0;
-            l = 0;
-            sp = 0;
-            pc = 0;
-            int_enable = false;
-        }
 
         public byte A
         {

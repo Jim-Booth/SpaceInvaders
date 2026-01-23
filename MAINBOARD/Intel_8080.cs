@@ -1,7 +1,7 @@
 
 ﻿using System.Diagnostics;
 
-namespace Invaders.MAINBOARD
+namespace SpaceInvaders.MAINBOARD
 {
     internal class Intel_8080
     {
