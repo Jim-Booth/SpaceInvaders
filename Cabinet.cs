@@ -111,8 +111,9 @@ namespace SpaceInvaders
                 // Enable alpha blending on the game texture so background shows through
                 SDL.SDL_SetTextureBlendMode(texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
                 
-                // Resize window
+                // Resize window and re-center
                 SDL.SDL_SetWindowSize(window, SCREEN_WIDTH * SCREEN_MULTIPLIER, SCREEN_HEIGHT * SCREEN_MULTIPLIER);
+                SDL.SDL_SetWindowPosition(window, SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED);
             }
         }
 
