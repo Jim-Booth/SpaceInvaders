@@ -101,7 +101,9 @@ SpaceInvaders/
 
 ## License
 
-This project is for educational purposes. Space Invaders is © Taito Corporation.
+This project is licensed under the [MIT License](LICENSE).
+
+Space Invaders is © Taito Corporation. This emulator is for educational purposes only.
 
 ## Acknowledgments
 
