@@ -61,7 +61,7 @@ dotnet run
 |-----|--------|
 | **[** / **]** | Decrease / Increase scale (2x-4x) |
 | **B** | Toggle background texture |
-| **R** | Toggle CRT effects (scanlines, vignette, rounded corners) |
+| **R** | Toggle CRT effects |
 | **G** | Toggle phosphor persistence (ghosting trails) |
 | **S** | Toggle sound on/off |
 
