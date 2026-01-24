@@ -44,6 +44,15 @@ namespace SpaceInvaders
         private bool phosphorPersistenceEnabled = true;
         private uint[] persistenceBuffer = [];             // Stores fading pixel data
         
+        // Additional CRT effects
+        private readonly float FLICKER_INTENSITY = 0.02f;  // 2% brightness variation
+        private readonly float JITTER_PROBABILITY = 0.002f; // 0.5% chance of jitter per frame
+        private readonly int JITTER_MAX_PIXELS = 1;        // Maximum horizontal jitter
+        private readonly float WARMUP_DURATION = 2.0f;     // Seconds to reach full brightness
+        private readonly float BLUR_STRENGTH = 0.3f;       // Horizontal blur blend factor
+        private readonly Random crtRandom = new();
+        private DateTime startupTime;
+        
         private IntPtr window;
         private IntPtr renderer;
         private IntPtr texture;
@@ -78,6 +87,7 @@ namespace SpaceInvaders
         {
             settings = GameSettings.Load();
             ApplyDipSwitches();
+            startupTime = DateTime.Now;
             pixelBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
             persistenceBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
             InitializeSDL();
@@ -617,6 +627,12 @@ namespace SpaceInvaders
                     {
                         Array.Copy(pixelBuffer, persistenceBuffer, pixelBuffer.Length);
                     }
+                    
+                    // Apply CRT post-processing effects
+                    if (crtEffectEnabled)
+                    {
+                        ApplyCrtPostProcessing(scaledWidth, scaledHeight);
+                    }
 
                     // Update texture with pixel buffer
                     unsafe
@@ -688,6 +704,100 @@ namespace SpaceInvaders
                     catch { }
                 }
             }
+        }
+
+        /// <summary>
+        /// Applies CRT post-processing effects: horizontal blur, flicker, jitter, and warmup.
+        /// </summary>
+        private void ApplyCrtPostProcessing(int width, int height)
+        {
+            // Calculate warmup brightness (0.0 to 1.0 over WARMUP_DURATION seconds)
+            float elapsedSeconds = (float)(DateTime.Now - startupTime).TotalSeconds;
+            float warmupFactor = Math.Min(1.0f, elapsedSeconds / WARMUP_DURATION);
+            // Ease-in curve for more realistic tube warmup
+            warmupFactor = warmupFactor * warmupFactor;
+            
+            // Calculate flicker (random brightness variation)
+            float flickerFactor = 1.0f - (float)(crtRandom.NextDouble() * FLICKER_INTENSITY);
+            
+            // Combined brightness factor
+            float brightnessFactor = warmupFactor * flickerFactor;
+            
+            // Determine if this frame has horizontal jitter
+            int jitterOffset = 0;
+            if (crtRandom.NextDouble() < JITTER_PROBABILITY)
+            {
+                jitterOffset = crtRandom.Next(-JITTER_MAX_PIXELS, JITTER_MAX_PIXELS + 1) * SCREEN_MULTIPLIER;
+            }
+            
+            // Apply effects to pixel buffer
+            uint[] tempBuffer = new uint[pixelBuffer.Length];
+            
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    int srcIndex = y * width + x;
+                    
+                    // Apply jitter offset
+                    int jitteredX = x + jitterOffset;
+                    if (jitteredX < 0 || jitteredX >= width)
+                    {
+                        tempBuffer[srcIndex] = 0; // Black for out-of-bounds
+                        continue;
+                    }
+                    
+                    int jitteredIndex = y * width + jitteredX;
+                    uint pixel = pixelBuffer[jitteredIndex];
+                    
+                    if (pixel == 0)
+                    {
+                        tempBuffer[srcIndex] = 0;
+                        continue;
+                    }
+                    
+                    // Extract ARGB components
+                    byte a = (byte)((pixel >> 24) & 0xFF);
+                    byte r = (byte)((pixel >> 16) & 0xFF);
+                    byte g = (byte)((pixel >> 8) & 0xFF);
+                    byte b = (byte)(pixel & 0xFF);
+                    
+                    // Apply horizontal blur (blend with neighbors)
+                    if (BLUR_STRENGTH > 0 && x > 0 && x < width - 1)
+                    {
+                        uint leftPixel = pixelBuffer[jitteredIndex - 1];
+                        uint rightPixel = pixelBuffer[jitteredIndex + 1];
+                        
+                        if (leftPixel != 0 || rightPixel != 0)
+                        {
+                            byte lr = (byte)((leftPixel >> 16) & 0xFF);
+                            byte lg = (byte)((leftPixel >> 8) & 0xFF);
+                            byte lb = (byte)(leftPixel & 0xFF);
+                            byte rr = (byte)((rightPixel >> 16) & 0xFF);
+                            byte rg = (byte)((rightPixel >> 8) & 0xFF);
+                            byte rb = (byte)(rightPixel & 0xFF);
+                            
+                            float centerWeight = 1.0f - BLUR_STRENGTH;
+                            float sideWeight = BLUR_STRENGTH * 0.5f;
+                            
+                            r = (byte)(r * centerWeight + (lr + rr) * sideWeight);
+                            g = (byte)(g * centerWeight + (lg + rg) * sideWeight);
+                            b = (byte)(b * centerWeight + (lb + rb) * sideWeight);
+                        }
+                    }
+                    
+                    // Apply brightness (warmup + flicker)
+                    r = (byte)(r * brightnessFactor);
+                    g = (byte)(g * brightnessFactor);
+                    b = (byte)(b * brightnessFactor);
+                    a = (byte)(a * brightnessFactor);
+                    
+                    tempBuffer[srcIndex] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
+                }
+            }
+            
+            // Copy back to pixel buffer
+            Array.Copy(tempBuffer, pixelBuffer, pixelBuffer.Length);
         }
 
         private uint GetColorValue(int screenPos_X, int screenPos_Y)
