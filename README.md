@@ -61,8 +61,7 @@ dotnet run
 |-----|--------|
 | **[** / **]** | Decrease / Increase scale (2x-4x) |
 | **B** | Toggle background texture |
-| **R** | Toggle CRT effects |
-| **G** | Toggle phosphor persistence (ghosting trails) |
+| **R** | Toggle CRT effects (including phosphor persistence) |
 | **S** | Toggle sound on/off |
 
 ### DIP Switch Controls
@@ -153,7 +152,7 @@ The emulator includes authentic CRT monitor effects to recreate the arcade exper
 | **Horizontal Jitter** | Rare random horizontal displacement (signal instability) |
 | **Power-On Warmup** | 2-second gradual brightness increase on startup |
 
-All CRT effects can be toggled with **R** key. Phosphor persistence can be toggled independently with **G** key.
+All CRT effects can be toggled with the **R** key.
 
 ## License
 
