@@ -478,7 +478,49 @@ namespace SpaceInvaders
         {
             while (!displayLoop.IsCancellationRequested)
             {
-                cpu!.DisplayTiming.WaitOne();
+                // Use timeout so we can still render overlay when paused
+                bool signaled = cpu!.DisplayTiming.WaitOne(16);
+                
+                // If paused and not signaled, still render the pause overlay
+                if (gamePaused && !signaled)
+                {
+                    lock (resizeLock)
+                    {
+                        int scaledWidth = SCREEN_WIDTH * SCREEN_MULTIPLIER;
+                        int scaledHeight = SCREEN_HEIGHT * SCREEN_MULTIPLIER;
+                        
+                        // Just re-render current state with overlay
+                        SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                        SDL.SDL_RenderClear(renderer);
+                        
+                        if (backgroundEnabled && backgroundTexture != IntPtr.Zero)
+                            SDL.SDL_RenderCopy(renderer, backgroundTexture, IntPtr.Zero, IntPtr.Zero);
+                        
+                        SDL.SDL_RenderCopy(renderer, texture, IntPtr.Zero, IntPtr.Zero);
+                        
+                        if (crtEffectEnabled)
+                        {
+                            SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+                            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 35);
+                            for (int x = 0; x < scaledWidth; x += SCREEN_MULTIPLIER)
+                                SDL.SDL_RenderDrawLine(renderer, x, 0, x, scaledHeight);
+                            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 25);
+                            for (int y = 0; y < scaledHeight; y += SCREEN_MULTIPLIER)
+                                SDL.SDL_RenderDrawLine(renderer, 0, y, scaledWidth, y);
+                            if (vignetteTexture != IntPtr.Zero)
+                                SDL.SDL_RenderCopy(renderer, vignetteTexture, IntPtr.Zero, IntPtr.Zero);
+                            if (screenMaskTexture != IntPtr.Zero)
+                                SDL.SDL_RenderCopy(renderer, screenMaskTexture, IntPtr.Zero, IntPtr.Zero);
+                        }
+                        
+                        if (overlayMessage != null)
+                            DrawOverlayMessage(scaledWidth, scaledHeight);
+                        
+                        SDL.SDL_RenderPresent(renderer);
+                    }
+                    continue;
+                }
+                
                 lock (resizeLock)
                 {
                     try
@@ -691,6 +733,7 @@ namespace SpaceInvaders
             if (key == SDL.SDL_Keycode.SDLK_p)
             {
                 gamePaused = !gamePaused;
+                if (cpu != null) cpu.Paused = gamePaused;
                 overlayMessage = gamePaused ? "paused" : null;
                 overlayMessageEndTime = gamePaused ? DateTime.MaxValue : DateTime.Now;
                 return;

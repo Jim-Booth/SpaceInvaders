@@ -16,11 +16,18 @@ namespace SpaceInvaders.MAINBOARD
     internal class Intel_8080
     {
         private bool running = false;
+        private bool paused = false;
 
         public bool Running
         {
             get { return running; }
             set { running = value; }
+        }
+
+        public bool Paused
+        {
+            get { return paused; }
+            set { paused = value; }
         }
 
         private byte[] portIn = new byte[4]; // 0,1,2,3
@@ -92,6 +99,13 @@ namespace SpaceInvaders.MAINBOARD
             running = true;
             while (running && !cancellationToken.IsCancellationRequested)
             {
+                // Wait while paused
+                while (paused && running && !cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(16, cancellationToken);
+                }
+                if (!running || cancellationToken.IsCancellationRequested) break;
+                
                 frameTiming.Restart();// frame start
                 ExecuteCycles(HALF_FRAME_CYCLES_MAX);// 1st half of frame
                 Interrupt(1);// mid screen Interrupt
