@@ -833,8 +833,8 @@ namespace SpaceInvaders
                 SDL.SDL_Keycode.SDLK_a => 7,      // 2P Left
                 SDL.SDL_Keycode.SDLK_d => 8,      // 2P Right
                 SDL.SDL_Keycode.SDLK_w => 9,      // 2P Fire
-                SDL.SDL_Keycode.SDLK_o => 10,     // Easter Egg Part 1
-                SDL.SDL_Keycode.SDLK_p => 11,     // Easter Egg Part 2
+                SDL.SDL_Keycode.SDLK_i => 10,     // Easter Egg Part 1
+                SDL.SDL_Keycode.SDLK_o => 11,     // Easter Egg Part 2
                 SDL.SDL_Keycode.SDLK_t => 12,     // Tilt
                 _ => 99                            // Unknown
             };

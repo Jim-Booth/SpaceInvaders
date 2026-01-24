@@ -35,6 +35,8 @@ dotnet run
 
 ## Controls
 
+### Game Controls
+
 | Key | Action |
 |-----|--------|
 | **C** | Insert Coin |
@@ -44,17 +46,27 @@ dotnet run
 | **Space** | Fire (Player 1) |
 | **A** / **D** | Move (Player 2) |
 | **W** | Fire (Player 2) |
+| **T** | Tilt (ends current game) |
 | **P** | Pause game |
-| **[** | Decrease scale (2x-4x) |
-| **]** | Increase scale (2x-4x) |
+| **ESC** | Exit |
+
+### Display Controls
+
+| Key | Action |
+|-----|--------|
+| **[** / **]** | Decrease / Increase scale (2x-4x) |
 | **B** | Toggle background texture |
 | **R** | Toggle CRT effects (scanlines, vignette, rounded corners) |
 | **G** | Toggle phosphor persistence (ghosting trails) |
 | **S** | Toggle sound on/off |
+
+### DIP Switch Controls
+
+| Key | Action |
+|-----|--------|
 | **F1** | Cycle lives (3 → 4 → 5 → 6) |
 | **F2** | Toggle bonus life threshold (1500 / 1000) |
 | **F3** | Toggle coin info display |
-| **ESC** | Exit |
 
 ## DIP Switches
 
