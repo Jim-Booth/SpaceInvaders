@@ -51,7 +51,22 @@ dotnet run
 | **R** | Toggle CRT effects (scanlines, vignette, rounded corners) |
 | **G** | Toggle phosphor persistence (ghosting trails) |
 | **S** | Toggle sound on/off |
+| **F1** | Cycle lives (3 → 4 → 5 → 6) |
+| **F2** | Toggle bonus life threshold (1500 / 1000) |
+| **F3** | Toggle coin info display |
 | **ESC** | Exit |
+
+## DIP Switches
+
+The emulator simulates the DIP switches found on the original arcade PCB. Settings are saved to `settings.json` and persist between sessions.
+
+| Setting | Options | Default | Key |
+|---------|---------|---------|-----|
+| **Lives** | 3, 4, 5, or 6 | 3 | F1 |
+| **Bonus Life** | 1500 or 1000 points | 1500 | F2 |
+| **Coin Info** | Show or hide in demo | Show | F3 |
+
+Changes take effect immediately and are saved automatically.
 
 ## ROM Files
 

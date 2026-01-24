@@ -28,6 +28,7 @@ namespace SpaceInvaders
         private static readonly CancellationToken portLoop = CancellationTokenSource.Token;
 
         private readonly byte[] inputPorts = [0x0E, 0x08, 0x00, 0x00];
+        private readonly GameSettings settings;
         private readonly int SCREEN_WIDTH = 223;
         private readonly int SCREEN_HEIGHT = 256;
         private int SCREEN_MULTIPLIER = 2;
@@ -75,6 +76,8 @@ namespace SpaceInvaders
 
         public Cabinet()
         {
+            settings = GameSettings.Load();
+            ApplyDipSwitches();
             pixelBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
             persistenceBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
             InitializeSDL();
@@ -344,6 +347,17 @@ namespace SpaceInvaders
             SDL.SDL_SetTextureBlendMode(texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
         }
 
+        /// <summary>
+        /// Applies DIP switch settings to Port 2.
+        /// Preserves player input bits (4-6) while setting DIP bits (0-1, 3, 7).
+        /// </summary>
+        private void ApplyDipSwitches()
+        {
+            byte dipBits = settings.GetPort2DipBits();
+            // Clear DIP switch bits (0-1, 3, 7) and preserve player input bits (2, 4-6)
+            inputPorts[2] = (byte)((inputPorts[2] & 0x74) | dipBits);
+        }
+
         public void Start()
         {
             ExecuteSpaceInvaders();
@@ -351,6 +365,7 @@ namespace SpaceInvaders
             // Monitor for SDL events
             Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, P=Pause, ESC=Exit");
             Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effect, G=Ghosting, S=Sound");
+            Console.WriteLine("DIP:      F1=Lives, F2=Bonus Life, F3=Coin Info");
             SDL.SDL_Event sdlEvent;
             while (!CancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -760,6 +775,37 @@ namespace SpaceInvaders
                 return;
             }
             
+            // DIP Switch controls (F1-F3)
+            if (key == SDL.SDL_Keycode.SDLK_F1)
+            {
+                settings.CycleLives();
+                ApplyDipSwitches();
+                settings.Save();
+                overlayMessage = $"lives:{settings.ActualLives}";
+                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_F2)
+            {
+                settings.ToggleBonusLife();
+                ApplyDipSwitches();
+                settings.Save();
+                overlayMessage = $"bonus:{settings.BonusLifeThreshold}";
+                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_F3)
+            {
+                settings.ToggleCoinInfo();
+                ApplyDipSwitches();
+                settings.Save();
+                overlayMessage = settings.CoinInfoHidden ? "coininfo:off" : "coininfo:on";
+                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                return;
+            }
+            
             uint keyValue = GetKeyValue(key);
             if (keyValue == 99) return; // Unknown key
             
@@ -872,23 +918,35 @@ namespace SpaceInvaders
 
         private void DrawChar(char c, int x, int y, int scale)
         {
-            // Simple 5x7 pixel font for lowercase letters and colon
+            // Simple 5x7 pixel font for letters, numbers and symbols
             // Bit 4 = leftmost pixel, bit 0 = rightmost pixel
             byte[] pattern = c switch
             {
                 'a' => [0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],  // .###. #...# #...# ##### #...# #...# #...#
+                'b' => [0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E],  // ####. #...# #...# ####. #...# #...# ####.
                 'c' => [0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E],  // .###. #...# #.... #.... #.... #...# .###.
-                'e' => [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F],  // ##### #.... #.... ####. #.... #.... #####
-                'r' => [0x00, 0x16, 0x19, 0x10, 0x10, 0x10, 0x10],  // ..... #.##. ##..# #.... #.... #.... #....
-                't' => [0x08, 0x08, 0x1E, 0x08, 0x08, 0x08, 0x07],  // .#... .#... ####. .#... .#... .#... ..###
-                's' => [0x0E, 0x11, 0x10, 0x0E, 0x01, 0x11, 0x0E],  // .###. #...# #.... .###. ....# #...# .###.
-                'o' => [0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],  // .###. #...# #...# #...# #...# #...# .###.
-                'u' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],  // #...# #...# #...# #...# #...# #...# .###.
-                'n' => [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],  // #...# ##..# #.#.# #..## #...# #...# #...#
                 'd' => [0x1C, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1C],  // ###.. #..#. #...# #...# #...# #..#. ###..
+                'e' => [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F],  // ##### #.... #.... ####. #.... #.... #####
                 'f' => [0x07, 0x08, 0x08, 0x1E, 0x08, 0x08, 0x08],  // ..### #.... #.... ####. #.... #.... #....
-                'p' => [0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10],  // ####. #...# #...# ####. #.... #.... #....
                 'h' => [0x10, 0x10, 0x10, 0x1E, 0x11, 0x11, 0x11],  // #.... #.... #.... ####. #...# #...# #...#
+                'i' => [0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E],  // .###. ..#.. ..#.. ..#.. ..#.. ..#.. .###.
+                'l' => [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F],  // #.... #.... #.... #.... #.... #.... #####
+                'n' => [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],  // #...# ##..# #.#.# #..## #...# #...# #...#
+                'o' => [0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],  // .###. #...# #...# #...# #...# #...# .###.
+                'p' => [0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10],  // ####. #...# #...# ####. #.... #.... #....
+                'r' => [0x00, 0x16, 0x19, 0x10, 0x10, 0x10, 0x10],  // ..... #.##. ##..# #.... #.... #.... #....
+                's' => [0x0E, 0x11, 0x10, 0x0E, 0x01, 0x11, 0x0E],  // .###. #...# #.... .###. ....# #...# .###.
+                't' => [0x08, 0x08, 0x1E, 0x08, 0x08, 0x08, 0x07],  // .#... .#... ####. .#... .#... .#... ..###
+                'u' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],  // #...# #...# #...# #...# #...# #...# .###.
+                'v' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x0A, 0x04],  // #...# #...# #...# #...# #...# .#.#. ..#..
+                'x' => [0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11],  // #...# #...# .#.#. ..#.. .#.#. #...# #...#
+                '0' => [0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E],  // .###. #...# #..## #.#.# ##..# #...# .###.
+                '1' => [0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E],  // ..#.. .##.. ..#.. ..#.. ..#.. ..#.. .###.
+                '2' => [0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F],  // .###. #...# ....# ...#. ..#.. .#... #####
+                '3' => [0x1F, 0x02, 0x04, 0x02, 0x01, 0x11, 0x0E],  // ##### ...#. ..#.. ...#. ....# #...# .###.
+                '4' => [0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02],  // ...#. ..##. .#.#. #..#. ##### ...#. ...#.
+                '5' => [0x1F, 0x10, 0x1E, 0x01, 0x01, 0x11, 0x0E],  // ##### #.... ####. ....# ....# #...# .###.
+                '6' => [0x06, 0x08, 0x10, 0x1E, 0x11, 0x11, 0x0E],  // ..##. .#... #.... ####. #...# #...# .###.
                 ':' => [0x00, 0x04, 0x04, 0x00, 0x04, 0x04, 0x00],  // ..... ..#.. ..#.. ..... ..#.. ..#.. .....
                 _ => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
             };
