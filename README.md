@@ -13,8 +13,8 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
   - Rounded corners (barrel distortion)
   - Vignette edge darkening
   - Phosphor persistence (ghosting trails on moving objects)
+- **Authentic audio** - Low-pass filtered sound effects simulating arcade cabinet speakers
 - **Background texture support** - Overlay game on custom cabinet artwork
-- **Original sound effects** - All arcade sounds via SFML audio
 - **Scalable display** - 2x to 4x resolution scaling
 - **Cross-platform** - Runs on Windows, macOS, and Linux
 
@@ -44,11 +44,12 @@ dotnet run
 | **Space** | Fire (Player 1) |
 | **A** / **D** | Move (Player 2) |
 | **W** | Fire (Player 2) |
+| **P** | Pause game |
 | **[** | Decrease scale (2x-4x) |
 | **]** | Increase scale (2x-4x) |
 | **B** | Toggle background texture |
 | **R** | Toggle CRT effects (scanlines, vignette, rounded corners) |
-| **P** | Toggle phosphor persistence (ghosting trails) |
+| **G** | Toggle phosphor persistence (ghosting trails) |
 | **S** | Toggle sound on/off |
 | **ESC** | Exit |
 

@@ -51,6 +51,7 @@ namespace SpaceInvaders
         private IntPtr screenMaskTexture;
         private bool backgroundEnabled = true;
         private bool soundEnabled = true;
+        private bool gamePaused = false;
         private string? overlayMessage = null;
         private DateTime overlayMessageEndTime;
         private uint[] pixelBuffer;
@@ -348,8 +349,8 @@ namespace SpaceInvaders
             ExecuteSpaceInvaders();
             
             // Monitor for SDL events
-            Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, ESC=Exit");
-            Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effect, P=Phosphor, S=Sound");
+            Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, P=Pause, ESC=Exit");
+            Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effect, G=Ghosting, S=Sound");
             SDL.SDL_Event sdlEvent;
             while (!CancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -689,6 +690,14 @@ namespace SpaceInvaders
             
             if (key == SDL.SDL_Keycode.SDLK_p)
             {
+                gamePaused = !gamePaused;
+                overlayMessage = gamePaused ? "paused" : null;
+                overlayMessageEndTime = gamePaused ? DateTime.MaxValue : DateTime.Now;
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_g)
+            {
                 phosphorPersistenceEnabled = !phosphorPersistenceEnabled;
                 if (!phosphorPersistenceEnabled)
                 {
@@ -824,7 +833,9 @@ namespace SpaceInvaders
             // Bit 4 = leftmost pixel, bit 0 = rightmost pixel
             byte[] pattern = c switch
             {
+                'a' => [0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],  // .###. #...# #...# ##### #...# #...# #...#
                 'c' => [0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E],  // .###. #...# #.... #.... #.... #...# .###.
+                'e' => [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F],  // ##### #.... #.... ####. #.... #.... #####
                 'r' => [0x00, 0x16, 0x19, 0x10, 0x10, 0x10, 0x10],  // ..... #.##. ##..# #.... #.... #.... #....
                 't' => [0x08, 0x08, 0x1E, 0x08, 0x08, 0x08, 0x07],  // .#... .#... ####. .#... .#... .#... ..###
                 's' => [0x0E, 0x11, 0x10, 0x0E, 0x01, 0x11, 0x0E],  // .###. #...# #.... .###. ....# #...# .###.

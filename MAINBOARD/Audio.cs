@@ -2,7 +2,7 @@
 // Project:     SpaceInvaders
 // File:        Audio.cs
 // Description: SFML-based audio playback engine with sound caching for arcade
-//              sound effects
+//              sound effects, including low-pass filter for authentic cabinet sound
 // Author:      James Booth
 // Created:     2024
 // License:     MIT License - See LICENSE file in the project root
@@ -48,9 +48,59 @@ internal class AudioPlaybackEngine : IDisposable
 internal class CachedSound
 {
     public SoundBuffer SoundBuffer { get; private set; }
+    
+    // Low-pass filter cutoff frequency (Hz) - arcade speakers had limited high frequency response
+    private const float LOWPASS_CUTOFF = 4000f;
 
     public CachedSound(string audioFileName)
     {
-        SoundBuffer = new SoundBuffer(audioFileName);
+        var originalBuffer = new SoundBuffer(audioFileName);
+        
+        // Apply low-pass filter to simulate arcade cabinet speaker
+        short[] samples = ApplyLowPassFilter(originalBuffer.Samples, originalBuffer.SampleRate, originalBuffer.ChannelCount);
+        
+        // Create channel map based on channel count
+        SoundChannel[] channelMap = originalBuffer.ChannelCount switch
+        {
+            1 => [SoundChannel.Mono],
+            2 => [SoundChannel.FrontLeft, SoundChannel.FrontRight],
+            _ => [SoundChannel.Mono]
+        };
+        
+        SoundBuffer = new SoundBuffer(samples, originalBuffer.ChannelCount, originalBuffer.SampleRate, channelMap);
+        originalBuffer.Dispose();
+    }
+    
+    /// <summary>
+    /// Applies a simple single-pole low-pass filter to simulate arcade cabinet speakers.
+    /// Arcade cabinets had limited frequency response, typically rolling off above 4-5 kHz.
+    /// </summary>
+    private static short[] ApplyLowPassFilter(short[] input, uint sampleRate, uint channelCount)
+    {
+        short[] output = new short[input.Length];
+        
+        // Calculate filter coefficient (RC low-pass filter)
+        // alpha = dt / (RC + dt) where RC = 1 / (2 * PI * cutoff)
+        float rc = 1.0f / (2.0f * MathF.PI * LOWPASS_CUTOFF);
+        float dt = 1.0f / sampleRate;
+        float alpha = dt / (rc + dt);
+        
+        // Process each channel separately
+        for (uint channel = 0; channel < channelCount; channel++)
+        {
+            float previousOutput = 0;
+            
+            for (int i = (int)channel; i < input.Length; i += (int)channelCount)
+            {
+                // Single-pole low-pass filter: y[n] = y[n-1] + alpha * (x[n] - y[n-1])
+                float filtered = previousOutput + alpha * (input[i] - previousOutput);
+                previousOutput = filtered;
+                
+                // Clamp to short range
+                output[i] = (short)Math.Clamp(filtered, short.MinValue, short.MaxValue);
+            }
+        }
+        
+        return output;
     }
 }
