@@ -8,7 +8,11 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
 
 - **Accurate Intel 8080 CPU emulation** - Full implementation of all 8080 opcodes
 - **Authentic display rendering** - Color zones matching original arcade cabinet (green, red, white)
-- **CRT scanline effect** - Optional scanline overlay for authentic appearance
+- **CRT effects** - Authentic arcade monitor simulation:
+  - Horizontal and vertical scanlines
+  - Rounded corners (barrel distortion)
+  - Vignette edge darkening
+  - Phosphor persistence (ghosting trails on moving objects)
 - **Background texture support** - Overlay game on custom cabinet artwork
 - **Original sound effects** - All arcade sounds via SFML audio
 - **Scalable display** - 2x to 4x resolution scaling
@@ -43,6 +47,8 @@ dotnet run
 | **[** | Decrease scale (2x-4x) |
 | **]** | Increase scale (2x-4x) |
 | **B** | Toggle background texture |
+| **R** | Toggle CRT effects (scanlines, vignette, rounded corners) |
+| **P** | Toggle phosphor persistence (ghosting trails) |
 | **S** | Toggle sound on/off |
 | **ESC** | Exit |
 
@@ -98,6 +104,19 @@ SpaceInvaders/
   - Green: Player and shields area
   - Red: UFO area at top
   - White: Middle play area
+
+## CRT Simulation
+
+The emulator includes authentic CRT monitor effects to recreate the arcade experience:
+
+| Effect | Description |
+|--------|-------------|
+| **Scanlines** | Horizontal and vertical lines simulating CRT raster |
+| **Vignette** | Edge darkening with quadratic falloff from center |
+| **Rounded Corners** | Barrel distortion mask simulating curved CRT glass |
+| **Phosphor Persistence** | 75% decay rate creating ghosting trails on moving sprites |
+
+All CRT effects can be toggled independently at runtime.
 
 ## License
 

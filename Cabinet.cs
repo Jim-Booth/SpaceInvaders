@@ -30,13 +30,25 @@ namespace SpaceInvaders
         private readonly byte[] inputPorts = [0x0E, 0x08, 0x00, 0x00];
         private readonly int SCREEN_WIDTH = 223;
         private readonly int SCREEN_HEIGHT = 256;
-        private int SCREEN_MULTIPLIER = 3;
+        private int SCREEN_MULTIPLIER = 2;
         private readonly object resizeLock = new();
+        
+        // CRT curvature settings
+        private readonly float BARREL_DISTORTION = 0.15f;  // Subtle barrel distortion
+        private readonly float CORNER_RADIUS = 0.08f;      // Rounded corner radius (as fraction of screen)
+        private bool crtEffectEnabled = true;
+        
+        // Phosphor persistence settings (ghosting/trails)
+        private readonly float PHOSPHOR_DECAY = 0.75f;     // How much of previous frame remains (0.0-1.0)
+        private bool phosphorPersistenceEnabled = true;
+        private uint[] persistenceBuffer = [];             // Stores fading pixel data
         
         private IntPtr window;
         private IntPtr renderer;
         private IntPtr texture;
         private IntPtr backgroundTexture;
+        private IntPtr vignetteTexture;
+        private IntPtr screenMaskTexture;
         private bool backgroundEnabled = true;
         private bool soundEnabled = true;
         private string? overlayMessage = null;
@@ -63,8 +75,11 @@ namespace SpaceInvaders
         public Cabinet()
         {
             pixelBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
+            persistenceBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
             InitializeSDL();
             LoadBackgroundTexture();
+            CreateVignetteTexture();
+            CreateScreenMaskTexture();
         }
 
         private void LoadBackgroundTexture()
@@ -92,9 +107,153 @@ namespace SpaceInvaders
             }
         }
 
+        private void CreateVignetteTexture()
+        {
+            int width = SCREEN_WIDTH * SCREEN_MULTIPLIER;
+            int height = SCREEN_HEIGHT * SCREEN_MULTIPLIER;
+            
+            // Destroy old vignette texture if it exists
+            if (vignetteTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(vignetteTexture);
+            
+            // Create a streaming texture for the vignette
+            vignetteTexture = SDL.SDL_CreateTexture(
+                renderer,
+                SDL.SDL_PIXELFORMAT_ARGB8888,
+                (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
+                width,
+                height
+            );
+            
+            if (vignetteTexture == IntPtr.Zero)
+                return;
+            
+            SDL.SDL_SetTextureBlendMode(vignetteTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            
+            // Generate vignette pattern
+            uint[] vignetteBuffer = new uint[width * height];
+            float centerX = width / 2.0f;
+            float centerY = height / 2.0f;
+            float maxDist = (float)Math.Sqrt(centerX * centerX + centerY * centerY);
+            
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float dx = x - centerX;
+                    float dy = y - centerY;
+                    float dist = (float)Math.Sqrt(dx * dx + dy * dy);
+                    float normalizedDist = dist / maxDist;
+                    
+                    // Vignette darkening: stronger at edges (quadratic falloff)
+                    float vignette = normalizedDist * normalizedDist * 0.6f;
+                    byte alpha = (byte)(Math.Min(vignette * 255, 180));
+                    
+                    // ARGB format: black with varying alpha
+                    vignetteBuffer[y * width + x] = ((uint)alpha << 24) | 0x000000;
+                }
+            }
+            
+            // Upload to texture
+            unsafe
+            {
+                fixed (uint* pixels = vignetteBuffer)
+                {
+                    SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = width, h = height };
+                    SDL.SDL_UpdateTexture(vignetteTexture, ref fullRect, (IntPtr)pixels, width * sizeof(uint));
+                }
+            }
+        }
+
+        private void CreateScreenMaskTexture()
+        {
+            int width = SCREEN_WIDTH * SCREEN_MULTIPLIER;
+            int height = SCREEN_HEIGHT * SCREEN_MULTIPLIER;
+            
+            // Destroy old mask texture if it exists
+            if (screenMaskTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(screenMaskTexture);
+            
+            // Create a streaming texture for the screen mask
+            screenMaskTexture = SDL.SDL_CreateTexture(
+                renderer,
+                SDL.SDL_PIXELFORMAT_ARGB8888,
+                (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
+                width,
+                height
+            );
+            
+            if (screenMaskTexture == IntPtr.Zero)
+                return;
+            
+            SDL.SDL_SetTextureBlendMode(screenMaskTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            
+            // Generate screen mask with rounded corners and edge darkening
+            uint[] maskBuffer = new uint[width * height];
+            float centerX = width / 2.0f;
+            float centerY = height / 2.0f;
+            
+            // Corner radius in pixels
+            float cornerRadius = Math.Min(width, height) * CORNER_RADIUS;
+            
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    // Normalize coordinates to -1 to 1 range
+                    float nx = (x - centerX) / centerX;
+                    float ny = (y - centerY) / centerY;
+                    
+                    // Check rounded corners using superellipse formula
+                    // This creates the characteristic rounded rectangle of CRT screens
+                    float cornerX = Math.Max(0, Math.Abs(x - centerX) - (centerX - cornerRadius));
+                    float cornerY = Math.Max(0, Math.Abs(y - centerY) - (centerY - cornerRadius));
+                    float cornerDist = (float)Math.Sqrt(cornerX * cornerX + cornerY * cornerY);
+                    
+                    // Calculate barrel distortion factor
+                    float r2 = nx * nx + ny * ny;
+                    float barrelFactor = 1.0f + BARREL_DISTORTION * r2;
+                    
+                    // Edge darkening based on distance from center (simulates CRT curvature)
+                    float edgeDark = r2 * 0.3f;
+                    
+                    byte alpha;
+                    if (cornerDist > cornerRadius)
+                    {
+                        // Outside rounded corner - fully black/opaque
+                        alpha = 255;
+                    }
+                    else if (cornerDist > cornerRadius - 2)
+                    {
+                        // Anti-aliased edge of rounded corner
+                        float t = (cornerDist - (cornerRadius - 2)) / 2.0f;
+                        alpha = (byte)(t * 255);
+                    }
+                    else
+                    {
+                        // Inside screen area - apply subtle edge darkening from barrel effect
+                        alpha = (byte)(Math.Min(edgeDark * 60, 40));
+                    }
+                    
+                    // ARGB format: black with varying alpha
+                    maskBuffer[y * width + x] = ((uint)alpha << 24) | 0x000000;
+                }
+            }
+            
+            // Upload to texture
+            unsafe
+            {
+                fixed (uint* pixels = maskBuffer)
+                {
+                    SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = width, h = height };
+                    SDL.SDL_UpdateTexture(screenMaskTexture, ref fullRect, (IntPtr)pixels, width * sizeof(uint));
+                }
+            }
+        }
+
         private void ResizeDisplay(int newMultiplier)
         {
-            if (newMultiplier < 2 || newMultiplier > 4 || newMultiplier == SCREEN_MULTIPLIER)
+            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == SCREEN_MULTIPLIER)
                 return;
 
             lock (resizeLock)
@@ -107,6 +266,7 @@ namespace SpaceInvaders
                 
                 // Recreate pixel buffer
                 pixelBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
+                persistenceBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
                 
                 // Recreate texture
                 texture = SDL.SDL_CreateTexture(
@@ -124,6 +284,10 @@ namespace SpaceInvaders
                 
                 // Enable alpha blending on the game texture so background shows through
                 SDL.SDL_SetTextureBlendMode(texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+                
+                // Recreate vignette and screen mask textures for new size
+                CreateVignetteTexture();
+                CreateScreenMaskTexture();
                 
                 // Resize window and re-center
                 SDL.SDL_SetWindowSize(window, SCREEN_WIDTH * SCREEN_MULTIPLIER, SCREEN_HEIGHT * SCREEN_MULTIPLIER);
@@ -185,7 +349,7 @@ namespace SpaceInvaders
             
             // Monitor for SDL events
             Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, ESC=Exit");
-            Console.WriteLine("Scale: [=Decrease (2x-4x), ]=Increase (2x-4x), B=Toggle Background, S=Toggle Sound");
+            Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effect, P=Phosphor, S=Sound");
             SDL.SDL_Event sdlEvent;
             while (!CancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -232,6 +396,10 @@ namespace SpaceInvaders
                 SDL.SDL_DestroyTexture(texture);
             if (backgroundTexture != IntPtr.Zero)
                 SDL.SDL_DestroyTexture(backgroundTexture);
+            if (vignetteTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(vignetteTexture);
+            if (screenMaskTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(screenMaskTexture);
             if (renderer != IntPtr.Zero)
                 SDL.SDL_DestroyRenderer(renderer);
             if (window != IntPtr.Zero)
@@ -314,8 +482,44 @@ namespace SpaceInvaders
                 {
                     try
                     {
-                    // Clear pixel buffer (fully transparent - alpha = 0)
-                    Array.Clear(pixelBuffer, 0, pixelBuffer.Length);
+                    // Apply phosphor persistence (fade previous frame) or clear
+                    if (phosphorPersistenceEnabled && crtEffectEnabled)
+                    {
+                        // Decay previous frame's pixels (phosphor fade effect)
+                        for (int i = 0; i < persistenceBuffer.Length; i++)
+                        {
+                            uint pixel = persistenceBuffer[i];
+                            if (pixel != 0)
+                            {
+                                // Extract ARGB components
+                                byte a = (byte)((pixel >> 24) & 0xFF);
+                                byte r = (byte)((pixel >> 16) & 0xFF);
+                                byte g = (byte)((pixel >> 8) & 0xFF);
+                                byte b = (byte)(pixel & 0xFF);
+                                
+                                // Apply decay to each component
+                                a = (byte)(a * PHOSPHOR_DECAY);
+                                r = (byte)(r * PHOSPHOR_DECAY);
+                                g = (byte)(g * PHOSPHOR_DECAY);
+                                b = (byte)(b * PHOSPHOR_DECAY);
+                                
+                                // Threshold to prevent infinite dim pixels
+                                if (a < 8) a = 0;
+                                if (r < 8) r = 0;
+                                if (g < 8) g = 0;
+                                if (b < 8) b = 0;
+                                
+                                persistenceBuffer[i] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
+                            }
+                            // Start with decayed persistence buffer
+                            pixelBuffer[i] = persistenceBuffer[i];
+                        }
+                    }
+                    else
+                    {
+                        // Clear pixel buffer (fully transparent - alpha = 0)
+                        Array.Clear(pixelBuffer, 0, pixelBuffer.Length);
+                    }
 
                     int ptr = 0;
                     int scaledWidth = SCREEN_WIDTH * SCREEN_MULTIPLIER;
@@ -349,6 +553,12 @@ namespace SpaceInvaders
                             }
                         }
                     }
+                    
+                    // Store current frame for next frame's persistence effect
+                    if (phosphorPersistenceEnabled && crtEffectEnabled)
+                    {
+                        Array.Copy(pixelBuffer, persistenceBuffer, pixelBuffer.Length);
+                    }
 
                     // Update texture with pixel buffer
                     unsafe
@@ -364,7 +574,7 @@ namespace SpaceInvaders
                     SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
                     SDL.SDL_RenderClear(renderer);
                     
-                    // Render background texture first (scaled to window size) if enabled
+                    // Render background texture if enabled
                     if (backgroundEnabled && backgroundTexture != IntPtr.Zero)
                     {
                         SDL.SDL_RenderCopy(renderer, backgroundTexture, IntPtr.Zero, IntPtr.Zero);
@@ -373,12 +583,36 @@ namespace SpaceInvaders
                     // Render game texture on top (with alpha blending - transparent pixels show background)
                     SDL.SDL_RenderCopy(renderer, texture, IntPtr.Zero, IntPtr.Zero);
                     
-                    // Draw CRT scanlines for authentic appearance (vertical due to rotated CRT)
-                    SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-                    SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 40); // Subtle semi-transparent black
-                    for (int x = 0; x < scaledWidth; x += SCREEN_MULTIPLIER)
+                    if (crtEffectEnabled)
                     {
-                        SDL.SDL_RenderDrawLine(renderer, x, 0, x, scaledHeight);
+                        // Draw CRT scanlines for authentic appearance
+                        SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+                        
+                        // Vertical scanlines (due to rotated CRT)
+                        SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 35);
+                        for (int x = 0; x < scaledWidth; x += SCREEN_MULTIPLIER)
+                        {
+                            SDL.SDL_RenderDrawLine(renderer, x, 0, x, scaledHeight);
+                        }
+                        
+                        // Horizontal scanlines (typical CRT raster lines)
+                        SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 25);
+                        for (int y = 0; y < scaledHeight; y += SCREEN_MULTIPLIER)
+                        {
+                            SDL.SDL_RenderDrawLine(renderer, 0, y, scaledWidth, y);
+                        }
+                        
+                        // Apply vignette overlay for edge darkening
+                        if (vignetteTexture != IntPtr.Zero)
+                        {
+                            SDL.SDL_RenderCopy(renderer, vignetteTexture, IntPtr.Zero, IntPtr.Zero);
+                        }
+                        
+                        // Apply CRT screen mask with rounded corners
+                        if (screenMaskTexture != IntPtr.Zero)
+                        {
+                            SDL.SDL_RenderCopy(renderer, screenMaskTexture, IntPtr.Zero, IntPtr.Zero);
+                        }
                     }
                     
                     // Draw overlay message if active
@@ -442,6 +676,27 @@ namespace SpaceInvaders
             if (key == SDL.SDL_Keycode.SDLK_b)
             {
                 backgroundEnabled = !backgroundEnabled;
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_r)
+            {
+                crtEffectEnabled = !crtEffectEnabled;
+                overlayMessage = crtEffectEnabled ? "crt:on" : "crt:off";
+                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_p)
+            {
+                phosphorPersistenceEnabled = !phosphorPersistenceEnabled;
+                if (!phosphorPersistenceEnabled)
+                {
+                    // Clear persistence buffer when disabling
+                    Array.Clear(persistenceBuffer, 0, persistenceBuffer.Length);
+                }
+                overlayMessage = phosphorPersistenceEnabled ? "phosphor:on" : "phosphor:off";
+                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
                 return;
             }
             
@@ -569,12 +824,17 @@ namespace SpaceInvaders
             // Bit 4 = leftmost pixel, bit 0 = rightmost pixel
             byte[] pattern = c switch
             {
+                'c' => [0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E],  // .###. #...# #.... #.... #.... #...# .###.
+                'r' => [0x00, 0x16, 0x19, 0x10, 0x10, 0x10, 0x10],  // ..... #.##. ##..# #.... #.... #.... #....
+                't' => [0x08, 0x08, 0x1E, 0x08, 0x08, 0x08, 0x07],  // .#... .#... ####. .#... .#... .#... ..###
                 's' => [0x0E, 0x11, 0x10, 0x0E, 0x01, 0x11, 0x0E],  // .###. #...# #.... .###. ....# #...# .###.
                 'o' => [0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],  // .###. #...# #...# #...# #...# #...# .###.
                 'u' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],  // #...# #...# #...# #...# #...# #...# .###.
                 'n' => [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],  // #...# ##..# #.#.# #..## #...# #...# #...#
                 'd' => [0x1C, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1C],  // ###.. #..#. #...# #...# #...# #..#. ###..
                 'f' => [0x07, 0x08, 0x08, 0x1E, 0x08, 0x08, 0x08],  // ..### #.... #.... ####. #.... #.... #....
+                'p' => [0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10],  // ####. #...# #...# ####. #.... #.... #....
+                'h' => [0x10, 0x10, 0x10, 0x1E, 0x11, 0x11, 0x11],  // #.... #.... #.... ####. #...# #...# #...#
                 ':' => [0x00, 0x04, 0x04, 0x00, 0x04, 0x04, 0x00],  // ..... ..#.. ..#.. ..... ..#.. ..#.. .....
                 _ => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
             };
