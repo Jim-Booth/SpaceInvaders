@@ -374,7 +374,7 @@ namespace SpaceInvaders
             
             // Monitor for SDL events
             Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, P=Pause, ESC=Exit");
-            Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effect, G=Ghosting, S=Sound");
+            Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effects, S=Sound");
             Console.WriteLine("DIP:      F1=Lives, F2=Bonus Life, F3=Coin Info");
             SDL.SDL_Event sdlEvent;
             while (!CancellationTokenSource.Token.IsCancellationRequested)
@@ -850,6 +850,12 @@ namespace SpaceInvaders
             if (key == SDL.SDL_Keycode.SDLK_r)
             {
                 crtEffectEnabled = !crtEffectEnabled;
+                phosphorPersistenceEnabled = crtEffectEnabled;
+                if (!phosphorPersistenceEnabled)
+                {
+                    // Clear persistence buffer when disabling
+                    Array.Clear(persistenceBuffer, 0, persistenceBuffer.Length);
+                }
                 overlayMessage = crtEffectEnabled ? "crt:on" : "crt:off";
                 overlayMessageEndTime = DateTime.Now.AddSeconds(2);
                 return;
@@ -864,18 +870,6 @@ namespace SpaceInvaders
                 return;
             }
             
-            if (key == SDL.SDL_Keycode.SDLK_g)
-            {
-                phosphorPersistenceEnabled = !phosphorPersistenceEnabled;
-                if (!phosphorPersistenceEnabled)
-                {
-                    // Clear persistence buffer when disabling
-                    Array.Clear(persistenceBuffer, 0, persistenceBuffer.Length);
-                }
-                overlayMessage = phosphorPersistenceEnabled ? "phosphor:on" : "phosphor:off";
-                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
-                return;
-            }
             
             if (key == SDL.SDL_Keycode.SDLK_s)
             {
