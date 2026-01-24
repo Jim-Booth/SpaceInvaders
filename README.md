@@ -16,7 +16,7 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
 - **Authentic audio** - Low-pass filtered sound effects simulating arcade cabinet speakers
 - **DIP switch emulation** - Configurable lives, bonus life threshold, and coin info display with persistent settings
 - **Background texture support** - Overlay game on custom cabinet artwork
-- **Scalable display** - 2x to 4x resolution scaling
+- **Scalable display** - 1x to 4x resolution scaling (Default is 2x)
 - **Cross-platform** - Runs on Windows, macOS, and Linux
 
 ## Prerequisites
