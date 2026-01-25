@@ -13,26 +13,23 @@ namespace SpaceInvaders.MAINBOARD
 {
     internal class Memory(long size)
     {
-        private readonly byte[] memory = new byte[size];
+        private readonly byte[] _data = new byte[size];
 
-        public byte[] GetMemory
-        {
-            get { return memory; }
-        }
+        public byte[] Data => _data;
 
         public void LoadFromFile(string filePath, int addr, int length)
         {
-            Array.Copy(File.ReadAllBytes(filePath), 0, memory, addr, length);
+            Array.Copy(File.ReadAllBytes(filePath), 0, _data, addr, length);
         }
 
         public byte ReadByte(uint addr)
         {
-            return memory[addr];
+            return _data[addr];
         }
 
         public void WriteByte(uint addr, byte value)
         {
-            memory[addr] = value;
+            _data[addr] = value;
         }
         
         /// <summary>
@@ -42,8 +39,8 @@ namespace SpaceInvaders.MAINBOARD
         public int ReadHighScore()
         {
             // High score stored at 0x20F4 (low byte) and 0x20F5 (high byte) in BCD
-            byte low = memory[0x20F4];
-            byte high = memory[0x20F5];
+            byte low = _data[0x20F4];
+            byte high = _data[0x20F5];
             
             // Convert BCD to integer (each nibble is a digit)
             int score = ((high >> 4) & 0x0F) * 1000 +
@@ -67,8 +64,8 @@ namespace SpaceInvaders.MAINBOARD
             byte low = (byte)(((bcdValue / 10) % 10 << 4) | (bcdValue % 10));
             byte high = (byte)(((bcdValue / 1000) % 10 << 4) | ((bcdValue / 100) % 10));
             
-            memory[0x20F4] = low;
-            memory[0x20F5] = high;
+            _data[0x20F4] = low;
+            _data[0x20F5] = high;
         }
     }
 }

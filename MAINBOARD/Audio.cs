@@ -13,32 +13,32 @@ using SFML.Audio;
 
 internal class AudioPlaybackEngine : IDisposable
 {
-    private readonly List<Sound> activeSounds = new();
-    private readonly object soundLock = new();
+    private readonly List<Sound> _activeSounds = new();
+    private readonly object _soundLock = new();
 
     public void PlaySound(CachedSound cachedSound)
     {
-        lock (soundLock)
+        lock (_soundLock)
         {
             var sound = new Sound(cachedSound.SoundBuffer);
-            activeSounds.Add(sound);
+            _activeSounds.Add(sound);
             sound.Play();
             
             // Clean up finished sounds
-            activeSounds.RemoveAll(s => s.Status == SoundStatus.Stopped);
+            _activeSounds.RemoveAll(s => s.Status == SoundStatus.Stopped);
         }
     }
 
     public void Dispose()
     {
-        lock (soundLock)
+        lock (_soundLock)
         {
-            foreach (var sound in activeSounds)
+            foreach (var sound in _activeSounds)
             {
                 sound.Stop();
                 sound.Dispose();
             }
-            activeSounds.Clear();
+            _activeSounds.Clear();
         }
     }
 
@@ -50,7 +50,7 @@ internal class CachedSound
     public SoundBuffer SoundBuffer { get; private set; }
     
     // Low-pass filter cutoff frequency (Hz) - arcade speakers had limited high frequency response
-    private const float LOWPASS_CUTOFF = 4000f;
+    private const float LowpassCutoff = 4000f;
 
     public CachedSound(string audioFileName)
     {
@@ -81,7 +81,7 @@ internal class CachedSound
         
         // Calculate filter coefficient (RC low-pass filter)
         // alpha = dt / (RC + dt) where RC = 1 / (2 * PI * cutoff)
-        float rc = 1.0f / (2.0f * MathF.PI * LOWPASS_CUTOFF);
+        float rc = 1.0f / (2.0f * MathF.PI * LowpassCutoff);
         float dt = 1.0f / sampleRate;
         float alpha = dt / (rc + dt);
         

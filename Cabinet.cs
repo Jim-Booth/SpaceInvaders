@@ -16,7 +16,7 @@ namespace SpaceInvaders
 {
     public class Cabinet
     {
-        private Intel_8080? cpu;
+        private Intel8080? cpu;
         private Thread? port_thread;
         private Thread? cpu_thread;
         private Thread? display_thread;
@@ -450,7 +450,7 @@ namespace SpaceInvaders
 
         private void ExecuteSpaceInvaders()
         {
-            cpu = new Intel_8080(new Memory(0x10000));
+            cpu = new Intel8080(new Memory(0x10000));
             cpu.Memory.LoadFromFile(Path.Combine(appPath, "ROMS", "invaders.h"), 0x0000, 0x800); // invaders.h 0000 - 07FF
             cpu.Memory.LoadFromFile(Path.Combine(appPath, "ROMS", "invaders.g"), 0x0800, 0x800); // invaders.g 0800 - 0FFF
             cpu.Memory.LoadFromFile(Path.Combine(appPath, "ROMS", "invaders.f"), 0x1000, 0x800); // invaders.f 1000 - 17FF

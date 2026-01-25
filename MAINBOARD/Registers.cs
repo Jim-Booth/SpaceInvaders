@@ -13,113 +13,104 @@ namespace SpaceInvaders.MAINBOARD
 {
     internal class Registers
     {
-        private byte a = 0;
-        private byte b = 0;
-        private byte c = 0;
-        private byte d = 0;
-        private byte e = 0;
-        private byte h = 0;
-        private byte l = 0;
-        private uint sp = 0;
-        private uint pc = 0;
-        private bool int_enable = false;
+        private byte _a;
+        private byte _b;
+        private byte _c;
+        private byte _d;
+        private byte _e;
+        private byte _h;
+        private byte _l;
+        private uint _sp;
+        private uint _pc;
+        private bool _intEnable;
 
         public byte A
         {
-            get { return a; }
-            set { a = value; }
+            get => _a;
+            set => _a = value;
         }
 
         public byte B
         {
-            get { return b; }
-            set { b = value; }
+            get => _b;
+            set => _b = value;
         }
 
         public byte C
         {
-            get { return c; }
-            set { c = value; }
+            get => _c;
+            set => _c = value;
         }
 
         public byte D
         {
-            get { return d; }
-            set { d = value; }
+            get => _d;
+            set => _d = value;
         }
 
         public byte E
         {
-            get { return e; }
-            set { e = value; }
+            get => _e;
+            set => _e = value;
         }
 
         public byte H
         {
-            get { return h; }
-            set { h = value; }
+            get => _h;
+            set => _h = value;
         }
 
         public byte L
         {
-            get { return l; }
-            set { l = value; }
+            get => _l;
+            set => _l = value;
         }
 
         public uint SP
         {
-            get { return sp; }
-            set { sp = value; }
+            get => _sp;
+            set => _sp = value;
         }
 
         public uint PC
         {
-            get { return pc; }
-            set { pc = value; }
+            get => _pc;
+            set => _pc = value;
         }
 
-        public bool INT_ENABLE
+        public bool IntEnable
         {
-            get { return int_enable; }
-            set { int_enable = value; }
+            get => _intEnable;
+            set => _intEnable = value;
         }
 
         public uint HL
         {
-            get
-            {
-                return (uint)h << 8 | (uint)l;
-            }
+            get => (uint)_h << 8 | (uint)_l;
             set
             {
-                h = (byte)((value & 0xFF00) >> 8);
-                l = (byte)(value & 0x00FF);
+                _h = (byte)((value & 0xFF00) >> 8);
+                _l = (byte)(value & 0x00FF);
             }
         }
 
         public uint DE
         {
-            get
-            {
-                return (uint)d << 8 | (uint)e;
-            }
+            get => (uint)_d << 8 | (uint)_e;
             set
             {
-                d = (byte)((value & 0xFF00) >> 8);
-                e = (byte)(value & 0x00FF);
+                _d = (byte)((value & 0xFF00) >> 8);
+                _e = (byte)(value & 0x00FF);
             }
         }
 
         public uint BC
         {
-            get
-            {
-                return (uint)b << 8 | (uint)c;
-            }
+            get => (uint)_b << 8 | (uint)_c;
             set
             {
-                b = (byte)((value & 0xFF00) >> 8);
-                c = (byte)(value & 0x00FF);
+                _b = (byte)((value & 0xFF00) >> 8);
+                _c = (byte)(value & 0x00FF);
             }
         }
     }
