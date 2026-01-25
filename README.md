@@ -64,6 +64,7 @@ dotnet run
 | **B** | Toggle background texture |
 | **R** | Toggle CRT effects (including phosphor persistence) |
 | **S** | Toggle sound on/off |
+| **F** | Toggle FPS counter |
 
 ### DIP Switch Controls
 
@@ -122,7 +123,7 @@ SpaceInvaders/
 ├── Program.cs              # Entry point
 ├── Cabinet.cs              # Arcade cabinet simulation, SDL2 rendering
 ├── MAINBOARD/
-│   ├── Intel_8080.cs       # CPU emulation core
+│   ├── Intel8080.cs        # CPU emulation core
 │   ├── Memory.cs           # 64KB addressable memory
 │   ├── Registers.cs        # CPU registers
 │   ├── Flags.cs            # Status flags (Z, S, P, CY, AC)

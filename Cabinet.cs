@@ -65,6 +65,12 @@ namespace SpaceInvaders
         private string? overlayMessage = null;
         private DateTime overlayMessageEndTime;
         private uint[] pixelBuffer;
+        
+        // FPS counter
+        private bool _fpsDisplayEnabled = false;
+        private int _frameCount = 0;
+        private DateTime _lastFpsUpdate = DateTime.Now;
+        private double _currentFps = 0.0;
         private static readonly string appPath = AppDomain.CurrentDomain.BaseDirectory;
 
         private readonly CachedSound ufo_lowpitch = new(Path.Combine(appPath, "SOUNDS", "ufo_lowpitch.wav"));
@@ -374,7 +380,7 @@ namespace SpaceInvaders
             
             // Monitor for SDL events
             Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, P=Pause, ESC=Exit");
-            Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effects, S=Sound");
+            Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effects, S=Sound, F=FPS");
             Console.WriteLine("DIP:      F1=Lives, F2=Bonus Life, F3=Coin Info");
             SDL.SDL_Event sdlEvent;
             while (!CancellationTokenSource.Token.IsCancellationRequested)
@@ -722,6 +728,22 @@ namespace SpaceInvaders
                         overlayMessage = null;
                     }
                     
+                    // Update and draw FPS counter
+                    _frameCount++;
+                    var now = DateTime.Now;
+                    var elapsed = (now - _lastFpsUpdate).TotalSeconds;
+                    if (elapsed >= 0.5) // Update FPS every 0.5 seconds
+                    {
+                        _currentFps = _frameCount / elapsed;
+                        _frameCount = 0;
+                        _lastFpsUpdate = now;
+                    }
+                    
+                    if (_fpsDisplayEnabled)
+                    {
+                        DrawFpsCounter(scaledWidth);
+                    }
+                    
                     SDL.SDL_RenderPresent(renderer);
                     }
                     catch { }
@@ -902,6 +924,12 @@ namespace SpaceInvaders
                 return;
             }
             
+            if (key == SDL.SDL_Keycode.SDLK_f)
+            {
+                _fpsDisplayEnabled = !_fpsDisplayEnabled;
+                return;
+            }
+            
             // DIP Switch controls (F1-F3)
             if (key == SDL.SDL_Keycode.SDLK_F1)
             {
@@ -1040,6 +1068,43 @@ namespace SpaceInvaders
             {
                 int charX = startX + i * (charWidth + charSpacing);
                 DrawChar(overlayMessage[i], charX, startY, SCREEN_MULTIPLIER);
+            }
+        }
+
+        private void DrawFpsCounter(int screenWidth)
+        {
+            // Format FPS string
+            string fpsText = $"fps:{_currentFps:F1}";
+            
+            // Character dimensions (scaled)
+            int charWidth = 5 * SCREEN_MULTIPLIER;
+            int charHeight = 7 * SCREEN_MULTIPLIER;
+            int charSpacing = 1 * SCREEN_MULTIPLIER;
+            int totalWidth = fpsText.Length * (charWidth + charSpacing) - charSpacing;
+            
+            // Position in top-right corner with padding
+            int padding = 5 * SCREEN_MULTIPLIER;
+            int startX = screenWidth - totalWidth - padding;
+            int startY = padding;
+            
+            // Draw semi-transparent background box
+            SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
+            SDL.SDL_Rect bgRect = new SDL.SDL_Rect
+            {
+                x = startX - 3 * SCREEN_MULTIPLIER,
+                y = startY - 2 * SCREEN_MULTIPLIER,
+                w = totalWidth + 6 * SCREEN_MULTIPLIER,
+                h = charHeight + 4 * SCREEN_MULTIPLIER
+            };
+            SDL.SDL_RenderFillRect(renderer, ref bgRect);
+            
+            // Draw FPS text in green
+            SDL.SDL_SetRenderDrawColor(renderer, 0x00, 0xFF, 0x00, 0xFF);
+            for (int i = 0; i < fpsText.Length; i++)
+            {
+                int charX = startX + i * (charWidth + charSpacing);
+                DrawChar(fpsText[i], charX, startY, SCREEN_MULTIPLIER);
             }
         }
 

@@ -2,6 +2,17 @@
 
 This is a cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 C#.
 
+## C# Naming Conventions
+Follow Microsoft C# naming conventions throughout the codebase:
+- **Private fields**: `_camelCase` (e.g., `_running`, `_frameCount`, `_portIn`)
+- **Local variables**: `camelCase` (e.g., `scaledWidth`, `elapsedSeconds`)
+- **Public properties**: `PascalCase` (e.g., `Running`, `Memory`, `PortOut`)
+- **Methods**: `PascalCase` (e.g., `DrawFpsCounter`, `HandleKeyDown`)
+- **Constants**: `PascalCase` (e.g., `ClockSpeed`, `FrameTimeMs`) - NOT SCREAMING_CASE
+- **Classes/Structs**: `PascalCase` (e.g., `Intel8080`, `CachedSound`)
+
+Do NOT refactor external libraries (SDL2, SFML).
+
 ## Project Type
 - Language: C#
 - Framework: .NET 9
@@ -22,12 +33,10 @@ This is a cross-platform Intel 8080 Space Invaders arcade emulator built with .N
 ## Project Files
 - [Program.cs](../Program.cs) - Main entry point
 - [Cabinet.cs](../Cabinet.cs) - Arcade cabinet simulation, SDL2 rendering, input handling
-- [SDL2.cs](../SDL2.cs) - SDL2 C# bindings (source-only package)
-- [LPUtf8StrMarshaler.cs](../LPUtf8StrMarshaler.cs) - SDL2 string marshaling
 - [SpaceInvaders.csproj](../SpaceInvaders.csproj) - Project configuration
 
 ## Intel 8080 Emulation (MAINBOARD/)
-- [Intel_8080.cs](../MAINBOARD/Intel_8080.cs) - CPU core with all 8080 opcodes
+- [Intel8080.cs](../MAINBOARD/Intel8080.cs) - CPU core with all 8080 opcodes
 - [Memory.cs](../MAINBOARD/Memory.cs) - 64KB addressable memory
 - [Registers.cs](../MAINBOARD/Registers.cs) - CPU registers (A, B, C, D, E, H, L, PC, SP)
 - [Flags.cs](../MAINBOARD/Flags.cs) - Status flags (Z, S, P, CY, AC)
@@ -42,10 +51,16 @@ This is a cross-platform Intel 8080 Space Invaders arcade emulator built with .N
 - **A/D** = Move (2P)
 - **W** = Fire (2P)
 - **ESC** = Exit
+- **P** = Pause
 - **[** = Decrease scale (2x-4x)
 - **]** = Increase scale (2x-4x)
 - **B** = Toggle background texture
+- **R** = Toggle CRT effects
 - **S** = Toggle sound on/off
+- **F** = Toggle FPS counter
+- **F1** = Cycle lives (DIP switch)
+- **F2** = Toggle bonus life threshold (DIP switch)
+- **F3** = Toggle coin info (DIP switch)
 
 Full keyboard mapping in `Cabinet.GetKeyValue()`
 
