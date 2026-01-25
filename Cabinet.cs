@@ -16,86 +16,86 @@ namespace SpaceInvaders
 {
     public class Cabinet
     {
-        private Intel8080? cpu;
-        private Thread? port_thread;
-        private Thread? cpu_thread;
-        private Thread? display_thread;
-        private Thread? sound_thread;
+        private Intel8080? _cpu;
+        private Thread? _portThread;
+        private Thread? _cpuThread;
+        private Thread? _displayThread;
+        private Thread? _soundThread;
 
-        private static readonly CancellationTokenSource CancellationTokenSource = new();
-        private static readonly CancellationToken displayLoop = CancellationTokenSource.Token;
-        private static readonly CancellationToken soundLoop = CancellationTokenSource.Token;
-        private static readonly CancellationToken portLoop = CancellationTokenSource.Token;
+        private static readonly CancellationTokenSource _cancellationTokenSource = new();
+        private static readonly CancellationToken _displayLoop = _cancellationTokenSource.Token;
+        private static readonly CancellationToken _soundLoop = _cancellationTokenSource.Token;
+        private static readonly CancellationToken _portLoop = _cancellationTokenSource.Token;
 
-        private readonly byte[] inputPorts = [0x0E, 0x08, 0x00, 0x00];
-        private readonly GameSettings settings;
-        private readonly int SCREEN_WIDTH = 223;
-        private readonly int SCREEN_HEIGHT = 256;
-        private int SCREEN_MULTIPLIER = 2;
-        private readonly object resizeLock = new();
+        private readonly byte[] _inputPorts = [0x0E, 0x08, 0x00, 0x00];
+        private readonly GameSettings _settings;
+        private readonly int ScreenWidth = 223;
+        private readonly int ScreenHeight = 256;
+        private int _screenMultiplier = 2;
+        private readonly object _resizeLock = new();
         
         // CRT curvature settings
-        private readonly float BARREL_DISTORTION = 0.15f;  // Subtle barrel distortion
-        private readonly float CORNER_RADIUS = 0.08f;      // Rounded corner radius (as fraction of screen)
-        private bool crtEffectEnabled = true;
+        private readonly float BarrelDistortion = 0.15f;  // Subtle barrel distortion
+        private readonly float CornerRadius = 0.08f;      // Rounded corner radius (as fraction of screen)
+        private bool _crtEffectEnabled = true;
         
         // Phosphor persistence settings (ghosting/trails)
-        private readonly float PHOSPHOR_DECAY = 0.75f;     // How much of previous frame remains (0.0-1.0)
-        private bool phosphorPersistenceEnabled = true;
-        private uint[] persistenceBuffer = [];             // Stores fading pixel data
+        private readonly float PhosphorDecay = 0.75f;     // How much of previous frame remains (0.0-1.0)
+        private bool _phosphorPersistenceEnabled = true;
+        private uint[] _persistenceBuffer = [];             // Stores fading pixel data
         
         // Additional CRT effects
-        private readonly float FLICKER_INTENSITY = 0.02f;  // 2% brightness variation
-        private readonly float JITTER_PROBABILITY = 0.002f; // 0.5% chance of jitter per frame
-        private readonly int JITTER_MAX_PIXELS = 1;        // Maximum horizontal jitter
-        private readonly float WARMUP_DURATION = 2.0f;     // Seconds to reach full brightness
-        private readonly float BLUR_STRENGTH = 0.3f;       // Horizontal blur blend factor
-        private readonly Random crtRandom = new();
-        private DateTime startupTime;
+        private readonly float FlickerIntensity = 0.02f;  // 2% brightness variation
+        private readonly float JitterProbability = 0.002f; // 0.5% chance of jitter per frame
+        private readonly int JitterMaxPixels = 1;        // Maximum horizontal jitter
+        private readonly float WarmupDuration = 2.0f;     // Seconds to reach full brightness
+        private readonly float BlurStrength = 0.3f;       // Horizontal blur blend factor
+        private readonly Random _crtRandom = new();
+        private DateTime _startupTime;
         
-        private IntPtr window;
-        private IntPtr renderer;
-        private IntPtr texture;
-        private IntPtr backgroundTexture;
-        private IntPtr vignetteTexture;
-        private IntPtr screenMaskTexture;
-        private bool backgroundEnabled = true;
-        private bool soundEnabled = true;
-        private bool gamePaused = false;
-        private string? overlayMessage = null;
-        private DateTime overlayMessageEndTime;
-        private uint[] pixelBuffer;
+        private IntPtr _window;
+        private IntPtr _renderer;
+        private IntPtr _texture;
+        private IntPtr _backgroundTexture;
+        private IntPtr _vignetteTexture;
+        private IntPtr _screenMaskTexture;
+        private bool _backgroundEnabled = true;
+        private bool _soundEnabled = true;
+        private bool _gamePaused = false;
+        private string? _overlayMessage = null;
+        private DateTime _overlayMessageEndTime;
+        private uint[] _pixelBuffer;
         
         // FPS counter
         private bool _fpsDisplayEnabled = false;
         private int _frameCount = 0;
         private DateTime _lastFpsUpdate = DateTime.Now;
         private double _currentFps = 0.0;
-        private static readonly string appPath = AppDomain.CurrentDomain.BaseDirectory;
+        private static readonly string AppPath = AppDomain.CurrentDomain.BaseDirectory;
 
-        private readonly CachedSound ufo_lowpitch = new(Path.Combine(appPath, "SOUNDS", "ufo_lowpitch.wav"));
-        private readonly CachedSound shoot = new(Path.Combine(appPath, "SOUNDS", "shoot.wav"));
-        private readonly CachedSound invaderkilled = new(Path.Combine(appPath, "SOUNDS", "invaderkilled.wav"));
-        private readonly CachedSound fastinvader1 = new(Path.Combine(appPath, "SOUNDS", "fastinvader1.wav"));
-        private readonly CachedSound fastinvader2 = new(Path.Combine(appPath, "SOUNDS", "fastinvader2.wav"));
-        private readonly CachedSound fastinvader3 = new(Path.Combine(appPath, "SOUNDS", "fastinvader3.wav"));
-        private readonly CachedSound fastinvader4 = new(Path.Combine(appPath, "SOUNDS", "fastinvader4.wav"));
-        private readonly CachedSound explosion = new(Path.Combine(appPath, "SOUNDS", "explosion.wav"));
-        private readonly CachedSound extendedplay = new(Path.Combine(appPath, "SOUNDS", "extendedPlay.wav"));
+        private readonly CachedSound _ufoLowpitch = new(Path.Combine(AppPath, "SOUNDS", "ufo_lowpitch.wav"));
+        private readonly CachedSound _shoot = new(Path.Combine(AppPath, "SOUNDS", "shoot.wav"));
+        private readonly CachedSound _invaderkilled = new(Path.Combine(AppPath, "SOUNDS", "invaderkilled.wav"));
+        private readonly CachedSound _fastinvader1 = new(Path.Combine(AppPath, "SOUNDS", "fastinvader1.wav"));
+        private readonly CachedSound _fastinvader2 = new(Path.Combine(AppPath, "SOUNDS", "fastinvader2.wav"));
+        private readonly CachedSound _fastinvader3 = new(Path.Combine(AppPath, "SOUNDS", "fastinvader3.wav"));
+        private readonly CachedSound _fastinvader4 = new(Path.Combine(AppPath, "SOUNDS", "fastinvader4.wav"));
+        private readonly CachedSound _explosion = new(Path.Combine(AppPath, "SOUNDS", "explosion.wav"));
+        private readonly CachedSound _extendedplay = new(Path.Combine(AppPath, "SOUNDS", "extendedPlay.wav"));
 
         // SDL2 Color values (RGBA)
-        private static readonly SDL.SDL_Color greenColor = new() { r = 0x0F, g = 0xDF, b = 0x0F, a = 0xC0 };
-        private static readonly SDL.SDL_Color whiteColor = new() { r = 0xEF, g = 0xEF, b = 0xFF, a = 0xC0 };
-        private static readonly SDL.SDL_Color whiteColor2 = new() { r = 0xEF, g = 0xEF, b = 0xFF, a = 0xF0 };
-        private static readonly SDL.SDL_Color redColor = new() { r = 0xFF, g = 0x00, b = 0x40, a = 0xC0 };
+        private static readonly SDL.SDL_Color _greenColor = new() { r = 0x0F, g = 0xDF, b = 0x0F, a = 0xC0 };
+        private static readonly SDL.SDL_Color _whiteColor = new() { r = 0xEF, g = 0xEF, b = 0xFF, a = 0xC0 };
+        private static readonly SDL.SDL_Color _whiteColor2 = new() { r = 0xEF, g = 0xEF, b = 0xFF, a = 0xF0 };
+        private static readonly SDL.SDL_Color _redColor = new() { r = 0xFF, g = 0x00, b = 0x40, a = 0xC0 };
 
         public Cabinet()
         {
-            settings = GameSettings.Load();
+            _settings = GameSettings.Load();
             ApplyDipSwitches();
-            startupTime = DateTime.Now;
-            pixelBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
-            persistenceBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
+            _startupTime = DateTime.Now;
+            _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
+            _persistenceBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
             InitializeSDL();
             LoadBackgroundTexture();
             CreateVignetteTexture();
@@ -104,7 +104,7 @@ namespace SpaceInvaders
 
         private void LoadBackgroundTexture()
         {
-            string backgroundPath = Path.Combine(appPath, "Cabinet.bmp");
+            string backgroundPath = Path.Combine(AppPath, "Cabinet.bmp");
             if (!File.Exists(backgroundPath))
             {
                 return;
@@ -117,38 +117,38 @@ namespace SpaceInvaders
                 return;
             }
 
-            backgroundTexture = SDL.SDL_CreateTextureFromSurface(renderer, surface);
+            _backgroundTexture = SDL.SDL_CreateTextureFromSurface(_renderer, surface);
             SDL.SDL_FreeSurface(surface);
 
-            if (backgroundTexture != IntPtr.Zero)
+            if (_backgroundTexture != IntPtr.Zero)
             {
                 // Ensure background renders without blending (fully opaque)
-                SDL.SDL_SetTextureBlendMode(backgroundTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_NONE);
+                SDL.SDL_SetTextureBlendMode(_backgroundTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_NONE);
             }
         }
 
         private void CreateVignetteTexture()
         {
-            int width = SCREEN_WIDTH * SCREEN_MULTIPLIER;
-            int height = SCREEN_HEIGHT * SCREEN_MULTIPLIER;
+            int width = ScreenWidth * _screenMultiplier;
+            int height = ScreenHeight * _screenMultiplier;
             
             // Destroy old vignette texture if it exists
-            if (vignetteTexture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(vignetteTexture);
+            if (_vignetteTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(_vignetteTexture);
             
             // Create a streaming texture for the vignette
-            vignetteTexture = SDL.SDL_CreateTexture(
-                renderer,
+            _vignetteTexture = SDL.SDL_CreateTexture(
+                _renderer,
                 SDL.SDL_PIXELFORMAT_ARGB8888,
                 (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
                 width,
                 height
             );
             
-            if (vignetteTexture == IntPtr.Zero)
+            if (_vignetteTexture == IntPtr.Zero)
                 return;
             
-            SDL.SDL_SetTextureBlendMode(vignetteTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            SDL.SDL_SetTextureBlendMode(_vignetteTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
             
             // Generate vignette pattern
             uint[] vignetteBuffer = new uint[width * height];
@@ -180,33 +180,33 @@ namespace SpaceInvaders
                 fixed (uint* pixels = vignetteBuffer)
                 {
                     SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = width, h = height };
-                    SDL.SDL_UpdateTexture(vignetteTexture, ref fullRect, (IntPtr)pixels, width * sizeof(uint));
+                    SDL.SDL_UpdateTexture(_vignetteTexture, ref fullRect, (IntPtr)pixels, width * sizeof(uint));
                 }
             }
         }
 
         private void CreateScreenMaskTexture()
         {
-            int width = SCREEN_WIDTH * SCREEN_MULTIPLIER;
-            int height = SCREEN_HEIGHT * SCREEN_MULTIPLIER;
+            int width = ScreenWidth * _screenMultiplier;
+            int height = ScreenHeight * _screenMultiplier;
             
             // Destroy old mask texture if it exists
-            if (screenMaskTexture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(screenMaskTexture);
+            if (_screenMaskTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(_screenMaskTexture);
             
             // Create a streaming texture for the screen mask
-            screenMaskTexture = SDL.SDL_CreateTexture(
-                renderer,
+            _screenMaskTexture = SDL.SDL_CreateTexture(
+                _renderer,
                 SDL.SDL_PIXELFORMAT_ARGB8888,
                 (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
                 width,
                 height
             );
             
-            if (screenMaskTexture == IntPtr.Zero)
+            if (_screenMaskTexture == IntPtr.Zero)
                 return;
             
-            SDL.SDL_SetTextureBlendMode(screenMaskTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            SDL.SDL_SetTextureBlendMode(_screenMaskTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
             
             // Generate screen mask with rounded corners and edge darkening
             uint[] maskBuffer = new uint[width * height];
@@ -214,7 +214,7 @@ namespace SpaceInvaders
             float centerY = height / 2.0f;
             
             // Corner radius in pixels
-            float cornerRadius = Math.Min(width, height) * CORNER_RADIUS;
+            float cornerRadius = Math.Min(width, height) * CornerRadius;
             
             for (int y = 0; y < height; y++)
             {
@@ -232,7 +232,7 @@ namespace SpaceInvaders
                     
                     // Calculate barrel distortion factor
                     float r2 = nx * nx + ny * ny;
-                    float barrelFactor = 1.0f + BARREL_DISTORTION * r2;
+                    float barrelFactor = 1.0f + BarrelDistortion * r2;
                     
                     // Edge darkening based on distance from center (simulates CRT curvature)
                     float edgeDark = r2 * 0.3f;
@@ -266,52 +266,52 @@ namespace SpaceInvaders
                 fixed (uint* pixels = maskBuffer)
                 {
                     SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = width, h = height };
-                    SDL.SDL_UpdateTexture(screenMaskTexture, ref fullRect, (IntPtr)pixels, width * sizeof(uint));
+                    SDL.SDL_UpdateTexture(_screenMaskTexture, ref fullRect, (IntPtr)pixels, width * sizeof(uint));
                 }
             }
         }
 
         private void ResizeDisplay(int newMultiplier)
         {
-            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == SCREEN_MULTIPLIER)
+            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == _screenMultiplier)
                 return;
 
-            lock (resizeLock)
+            lock (_resizeLock)
             {
-                SCREEN_MULTIPLIER = newMultiplier;
+                _screenMultiplier = newMultiplier;
                 
                 // Destroy old texture
-                if (texture != IntPtr.Zero)
-                    SDL.SDL_DestroyTexture(texture);
+                if (_texture != IntPtr.Zero)
+                    SDL.SDL_DestroyTexture(_texture);
                 
                 // Recreate pixel buffer
-                pixelBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
-                persistenceBuffer = new uint[(SCREEN_WIDTH * SCREEN_MULTIPLIER) * (SCREEN_HEIGHT * SCREEN_MULTIPLIER)];
+                _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
+                _persistenceBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
                 
                 // Recreate texture
-                texture = SDL.SDL_CreateTexture(
-                    renderer,
+                _texture = SDL.SDL_CreateTexture(
+                    _renderer,
                     SDL.SDL_PIXELFORMAT_ARGB8888,
                     (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
-                    SCREEN_WIDTH * SCREEN_MULTIPLIER,
-                    SCREEN_HEIGHT * SCREEN_MULTIPLIER
+                    ScreenWidth * _screenMultiplier,
+                    ScreenHeight * _screenMultiplier
                 );
                 
-                if (texture == IntPtr.Zero)
+                if (_texture == IntPtr.Zero)
                 {
                     throw new Exception($"Texture could not be created! SDL_Error: {SDL.SDL_GetError()}");
                 }
                 
                 // Enable alpha blending on the game texture so background shows through
-                SDL.SDL_SetTextureBlendMode(texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+                SDL.SDL_SetTextureBlendMode(_texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
                 
                 // Recreate vignette and screen mask textures for new size
                 CreateVignetteTexture();
                 CreateScreenMaskTexture();
                 
                 // Resize window and re-center
-                SDL.SDL_SetWindowSize(window, SCREEN_WIDTH * SCREEN_MULTIPLIER, SCREEN_HEIGHT * SCREEN_MULTIPLIER);
-                SDL.SDL_SetWindowPosition(window, SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED);
+                SDL.SDL_SetWindowSize(_window, ScreenWidth * _screenMultiplier, ScreenHeight * _screenMultiplier);
+                SDL.SDL_SetWindowPosition(_window, SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED);
             }
         }
 
@@ -322,16 +322,16 @@ namespace SpaceInvaders
                 throw new Exception($"SDL could not initialize! SDL_Error: {SDL.SDL_GetError()}");
             }
 
-            window = SDL.SDL_CreateWindow(
+            _window = SDL.SDL_CreateWindow(
                 "Space Invaders - Taito",
                 SDL.SDL_WINDOWPOS_CENTERED,
                 SDL.SDL_WINDOWPOS_CENTERED,
-                SCREEN_WIDTH * SCREEN_MULTIPLIER,
-                SCREEN_HEIGHT * SCREEN_MULTIPLIER,
+                ScreenWidth * _screenMultiplier,
+                ScreenHeight * _screenMultiplier,
                 SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN
             );
 
-            if (window == IntPtr.Zero)
+            if (_window == IntPtr.Zero)
             {
                 throw new Exception($"Window could not be created! SDL_Error: {SDL.SDL_GetError()}");
             }
@@ -339,28 +339,28 @@ namespace SpaceInvaders
             // Enable linear filtering for smooth CRT-like appearance
             SDL.SDL_SetHint(SDL.SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
-            renderer = SDL.SDL_CreateRenderer(window, -1, SDL.SDL_RendererFlags.SDL_RENDERER_ACCELERATED);
-            if (renderer == IntPtr.Zero)
+            _renderer = SDL.SDL_CreateRenderer(_window, -1, SDL.SDL_RendererFlags.SDL_RENDERER_ACCELERATED);
+            if (_renderer == IntPtr.Zero)
             {
                 throw new Exception($"Renderer could not be created! SDL_Error: {SDL.SDL_GetError()}");
             }
 
             // Create streaming texture for pixel-perfect rendering
-            texture = SDL.SDL_CreateTexture(
-                renderer,
+            _texture = SDL.SDL_CreateTexture(
+                _renderer,
                 SDL.SDL_PIXELFORMAT_ARGB8888,
                 (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
-                SCREEN_WIDTH * SCREEN_MULTIPLIER,
-                SCREEN_HEIGHT * SCREEN_MULTIPLIER
+                ScreenWidth * _screenMultiplier,
+                ScreenHeight * _screenMultiplier
             );
             
-            if (texture == IntPtr.Zero)
+            if (_texture == IntPtr.Zero)
             {
                 throw new Exception($"Texture could not be created! SDL_Error: {SDL.SDL_GetError()}");
             }
             
             // Enable alpha blending on the game texture so background shows through
-            SDL.SDL_SetTextureBlendMode(texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            SDL.SDL_SetTextureBlendMode(_texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
         }
 
         /// <summary>
@@ -369,9 +369,9 @@ namespace SpaceInvaders
         /// </summary>
         private void ApplyDipSwitches()
         {
-            byte dipBits = settings.GetPort2DipBits();
+            byte dipBits = _settings.GetPort2DipBits();
             // Clear DIP switch bits (0-1, 3, 7) and preserve player input bits (2, 4-6)
-            inputPorts[2] = (byte)((inputPorts[2] & 0x74) | dipBits);
+            _inputPorts[2] = (byte)((_inputPorts[2] & 0x74) | dipBits);
         }
 
         public void Start()
@@ -383,7 +383,7 @@ namespace SpaceInvaders
             Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effects, S=Sound, F=FPS");
             Console.WriteLine("DIP:      F1=Lives, F2=Bonus Life, F3=Coin Info");
             SDL.SDL_Event sdlEvent;
-            while (!CancellationTokenSource.Token.IsCancellationRequested)
+            while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {
                 // Process SDL events
                 while (SDL.SDL_PollEvent(out sdlEvent) != 0)
@@ -391,8 +391,8 @@ namespace SpaceInvaders
                     if (sdlEvent.type == SDL.SDL_EventType.SDL_QUIT)
                     {
                         Console.WriteLine("\nWindow closed. Exiting...");
-                        CancellationTokenSource.Cancel();
-                        cpu?.Stop();
+                        _cancellationTokenSource.Cancel();
+                        _cpu?.Stop();
                         break;
                     }
                     else if (sdlEvent.type == SDL.SDL_EventType.SDL_KEYDOWN)
@@ -407,48 +407,48 @@ namespace SpaceInvaders
                 
                 try
                 {
-                    Task.Delay(16, CancellationTokenSource.Token).Wait(); // ~60 FPS event polling
+                    Task.Delay(16, _cancellationTokenSource.Token).Wait(); // ~60 FPS event polling
                 }
-                catch (AggregateException) when (CancellationTokenSource.Token.IsCancellationRequested)
+                catch (AggregateException) when (_cancellationTokenSource.Token.IsCancellationRequested)
                 {
                     // Expected when cancellation is triggered
                 }
             }
             
             // Save high score before shutdown
-            if (cpu != null)
+            if (_cpu != null)
             {
-                int currentHighScore = cpu.Memory.ReadHighScore();
-                Console.WriteLine($"Current high score in memory: {currentHighScore}, Saved: {settings.HighScore}");
-                if (currentHighScore > settings.HighScore)
+                int currentHighScore = _cpu.Memory.ReadHighScore();
+                Console.WriteLine($"Current high score in memory: {currentHighScore}, Saved: {_settings.HighScore}");
+                if (currentHighScore > _settings.HighScore)
                 {
-                    settings.HighScore = currentHighScore;
+                    _settings.HighScore = currentHighScore;
                     Console.WriteLine($"New high score! Saving: {currentHighScore}");
                 }
-                settings.Save();
+                _settings.Save();
             }
             
             // Wait for threads to finish
             Console.WriteLine("Waiting for threads to terminate...");
-            cpu_thread?.Join(2000);
-            port_thread?.Join(1000);
-            display_thread?.Join(1000);
-            sound_thread?.Join(1000);
+            _cpuThread?.Join(2000);
+            _portThread?.Join(1000);
+            _displayThread?.Join(1000);
+            _soundThread?.Join(1000);
             AudioPlaybackEngine.Instance.Dispose();
             
             // Cleanup SDL
-            if (texture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(texture);
-            if (backgroundTexture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(backgroundTexture);
-            if (vignetteTexture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(vignetteTexture);
-            if (screenMaskTexture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(screenMaskTexture);
-            if (renderer != IntPtr.Zero)
-                SDL.SDL_DestroyRenderer(renderer);
-            if (window != IntPtr.Zero)
-                SDL.SDL_DestroyWindow(window);
+            if (_texture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(_texture);
+            if (_backgroundTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(_backgroundTexture);
+            if (_vignetteTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(_vignetteTexture);
+            if (_screenMaskTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(_screenMaskTexture);
+            if (_renderer != IntPtr.Zero)
+                SDL.SDL_DestroyRenderer(_renderer);
+            if (_window != IntPtr.Zero)
+                SDL.SDL_DestroyWindow(_window);
             SDL.SDL_Quit();
             
             Console.WriteLine("Cleanup complete. Exiting.");
@@ -456,17 +456,17 @@ namespace SpaceInvaders
 
         private void ExecuteSpaceInvaders()
         {
-            cpu = new Intel8080(new Memory(0x10000));
-            cpu.Memory.LoadFromFile(Path.Combine(appPath, "ROMS", "invaders.h"), 0x0000, 0x800); // invaders.h 0000 - 07FF
-            cpu.Memory.LoadFromFile(Path.Combine(appPath, "ROMS", "invaders.g"), 0x0800, 0x800); // invaders.g 0800 - 0FFF
-            cpu.Memory.LoadFromFile(Path.Combine(appPath, "ROMS", "invaders.f"), 0x1000, 0x800); // invaders.f 1000 - 17FF
-            cpu.Memory.LoadFromFile(Path.Combine(appPath, "ROMS", "invaders.e"), 0x1800, 0x800); // invaders.e 1800 - 1FFF
+            _cpu = new Intel8080(new Memory(0x10000));
+            _cpu.Memory.LoadFromFile(Path.Combine(AppPath, "ROMS", "invaders.h"), 0x0000, 0x800); // invaders.h 0000 - 07FF
+            _cpu.Memory.LoadFromFile(Path.Combine(AppPath, "ROMS", "invaders.g"), 0x0800, 0x800); // invaders.g 0800 - 0FFF
+            _cpu.Memory.LoadFromFile(Path.Combine(AppPath, "ROMS", "invaders.f"), 0x1000, 0x800); // invaders.f 1000 - 17FF
+            _cpu.Memory.LoadFromFile(Path.Combine(AppPath, "ROMS", "invaders.e"), 0x1800, 0x800); // invaders.e 1800 - 1FFF
 
-            cpu_thread = new Thread(async () => 
+            _cpuThread = new Thread(async () => 
             {
                 try
                 {
-                    await cpu!.StartAsync(CancellationTokenSource.Token);
+                    await _cpu!.StartAsync(_cancellationTokenSource.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -476,116 +476,116 @@ namespace SpaceInvaders
             {
                 Priority = ThreadPriority.Highest
             };
-            cpu_thread.Start();
+            _cpuThread.Start();
 
-            while (!cpu.Running) { }
+            while (!_cpu.Running) { }
             
             // Restore high score from persistent settings
             // Must be done AFTER CPU starts, as the game's init code clears RAM
-            if (settings.HighScore > 0)
+            if (_settings.HighScore > 0)
             {
                 // Wait for game initialization to complete (clears RAM including high score area)
                 Thread.Sleep(100);
-                cpu.Memory.WriteHighScore(settings.HighScore);
-                Console.WriteLine($"Restored high score: {settings.HighScore}");
+                _cpu.Memory.WriteHighScore(_settings.HighScore);
+                Console.WriteLine($"Restored high score: {_settings.HighScore}");
             }
 
-            port_thread = new Thread(PortThread)
+            _portThread = new Thread(PortThread)
             {
                 IsBackground = true
             };
-            port_thread.Start();
+            _portThread.Start();
 
-            display_thread = new Thread(DisplayThread)
+            _displayThread = new Thread(DisplayThread)
             {
                 IsBackground = true
             };
-            display_thread.Start();
+            _displayThread.Start();
 
-            sound_thread = new Thread(SoundThread)
+            _soundThread = new Thread(SoundThread)
             {
                 IsBackground = true
             };
-            sound_thread.Start();
+            _soundThread.Start();
         }
 
         private async void PortThread()
         {
-            while (!portLoop.IsCancellationRequested)
+            while (!_portLoop.IsCancellationRequested)
             {
-                while (cpu!.PortIn == inputPorts)
+                while (_cpu!.PortIn == _inputPorts)
                 {
                     try
                     {
-                        await Task.Delay(4, portLoop);
+                        await Task.Delay(4, _portLoop);
                     }
                     catch (OperationCanceledException)
                     {
                         return;
                     }
                 }
-                cpu.PortIn = inputPorts;
+                _cpu.PortIn = _inputPorts;
             }
         }
 
         public void DisplayThread()
         {
-            while (!displayLoop.IsCancellationRequested)
+            while (!_displayLoop.IsCancellationRequested)
             {
                 // Use timeout so we can still render overlay when paused
-                bool signaled = cpu!.DisplayTiming.WaitOne(16);
+                bool signaled = _cpu!.DisplayTiming.WaitOne(16);
                 
                 // If paused and not signaled, still render the pause overlay
-                if (gamePaused && !signaled)
+                if (_gamePaused && !signaled)
                 {
-                    lock (resizeLock)
+                    lock (_resizeLock)
                     {
-                        int scaledWidth = SCREEN_WIDTH * SCREEN_MULTIPLIER;
-                        int scaledHeight = SCREEN_HEIGHT * SCREEN_MULTIPLIER;
+                        int scaledWidth = ScreenWidth * _screenMultiplier;
+                        int scaledHeight = ScreenHeight * _screenMultiplier;
                         
                         // Just re-render current state with overlay
-                        SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-                        SDL.SDL_RenderClear(renderer);
+                        SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
+                        SDL.SDL_RenderClear(_renderer);
                         
-                        if (backgroundEnabled && backgroundTexture != IntPtr.Zero)
-                            SDL.SDL_RenderCopy(renderer, backgroundTexture, IntPtr.Zero, IntPtr.Zero);
+                        if (_backgroundEnabled && _backgroundTexture != IntPtr.Zero)
+                            SDL.SDL_RenderCopy(_renderer, _backgroundTexture, IntPtr.Zero, IntPtr.Zero);
                         
-                        SDL.SDL_RenderCopy(renderer, texture, IntPtr.Zero, IntPtr.Zero);
+                        SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
                         
-                        if (crtEffectEnabled)
+                        if (_crtEffectEnabled)
                         {
-                            SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-                            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 35);
-                            for (int x = 0; x < scaledWidth; x += SCREEN_MULTIPLIER)
-                                SDL.SDL_RenderDrawLine(renderer, x, 0, x, scaledHeight);
-                            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 25);
-                            for (int y = 0; y < scaledHeight; y += SCREEN_MULTIPLIER)
-                                SDL.SDL_RenderDrawLine(renderer, 0, y, scaledWidth, y);
-                            if (vignetteTexture != IntPtr.Zero)
-                                SDL.SDL_RenderCopy(renderer, vignetteTexture, IntPtr.Zero, IntPtr.Zero);
-                            if (screenMaskTexture != IntPtr.Zero)
-                                SDL.SDL_RenderCopy(renderer, screenMaskTexture, IntPtr.Zero, IntPtr.Zero);
+                            SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+                            SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 35);
+                            for (int x = 0; x < scaledWidth; x += _screenMultiplier)
+                                SDL.SDL_RenderDrawLine(_renderer, x, 0, x, scaledHeight);
+                            SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 25);
+                            for (int y = 0; y < scaledHeight; y += _screenMultiplier)
+                                SDL.SDL_RenderDrawLine(_renderer, 0, y, scaledWidth, y);
+                            if (_vignetteTexture != IntPtr.Zero)
+                                SDL.SDL_RenderCopy(_renderer, _vignetteTexture, IntPtr.Zero, IntPtr.Zero);
+                            if (_screenMaskTexture != IntPtr.Zero)
+                                SDL.SDL_RenderCopy(_renderer, _screenMaskTexture, IntPtr.Zero, IntPtr.Zero);
                         }
                         
-                        if (overlayMessage != null)
+                        if (_overlayMessage != null)
                             DrawOverlayMessage(scaledWidth, scaledHeight);
                         
-                        SDL.SDL_RenderPresent(renderer);
+                        SDL.SDL_RenderPresent(_renderer);
                     }
                     continue;
                 }
                 
-                lock (resizeLock)
+                lock (_resizeLock)
                 {
                     try
                     {
                     // Apply phosphor persistence (fade previous frame) or clear
-                    if (phosphorPersistenceEnabled && crtEffectEnabled)
+                    if (_phosphorPersistenceEnabled && _crtEffectEnabled)
                     {
                         // Decay previous frame's pixels (phosphor fade effect)
-                        for (int i = 0; i < persistenceBuffer.Length; i++)
+                        for (int i = 0; i < _persistenceBuffer.Length; i++)
                         {
-                            uint pixel = persistenceBuffer[i];
+                            uint pixel = _persistenceBuffer[i];
                             if (pixel != 0)
                             {
                                 // Extract ARGB components
@@ -595,10 +595,10 @@ namespace SpaceInvaders
                                 byte b = (byte)(pixel & 0xFF);
                                 
                                 // Apply decay to each component
-                                a = (byte)(a * PHOSPHOR_DECAY);
-                                r = (byte)(r * PHOSPHOR_DECAY);
-                                g = (byte)(g * PHOSPHOR_DECAY);
-                                b = (byte)(b * PHOSPHOR_DECAY);
+                                a = (byte)(a * PhosphorDecay);
+                                r = (byte)(r * PhosphorDecay);
+                                g = (byte)(g * PhosphorDecay);
+                                b = (byte)(b * PhosphorDecay);
                                 
                                 // Threshold to prevent infinite dim pixels
                                 if (a < 8) a = 0;
@@ -606,42 +606,42 @@ namespace SpaceInvaders
                                 if (g < 8) g = 0;
                                 if (b < 8) b = 0;
                                 
-                                persistenceBuffer[i] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
+                                _persistenceBuffer[i] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
                             }
                             // Start with decayed persistence buffer
-                            pixelBuffer[i] = persistenceBuffer[i];
+                            _pixelBuffer[i] = _persistenceBuffer[i];
                         }
                     }
                     else
                     {
                         // Clear pixel buffer (fully transparent - alpha = 0)
-                        Array.Clear(pixelBuffer, 0, pixelBuffer.Length);
+                        Array.Clear(_pixelBuffer, 0, _pixelBuffer.Length);
                     }
 
                     int ptr = 0;
-                    int scaledWidth = SCREEN_WIDTH * SCREEN_MULTIPLIER;
-                    int scaledHeight = SCREEN_HEIGHT * SCREEN_MULTIPLIER;
-                    for (int x = 0; x < scaledWidth; x += SCREEN_MULTIPLIER)
+                    int scaledWidth = ScreenWidth * _screenMultiplier;
+                    int scaledHeight = ScreenHeight * _screenMultiplier;
+                    for (int x = 0; x < scaledWidth; x += _screenMultiplier)
                     {
-                        for (int y = scaledHeight; y > 0; y -= 8 * SCREEN_MULTIPLIER)
+                        for (int y = scaledHeight; y > 0; y -= 8 * _screenMultiplier)
                         {
-                            byte value = cpu.Video[ptr++];
+                            byte value = _cpu.Video[ptr++];
                             for (int b = 0; b < 8; b++)
                             {
                                 if ((value & (1 << b)) != 0)
                                 {
-                                    int pixelY = y - (b * SCREEN_MULTIPLIER);
+                                    int pixelY = y - (b * _screenMultiplier);
                                     uint colorValue = GetColorValue(x, y);
                                     int bufferIndex = pixelY * scaledWidth + x;
-                                    if (bufferIndex >= 0 && bufferIndex < pixelBuffer.Length)
+                                    if (bufferIndex >= 0 && bufferIndex < _pixelBuffer.Length)
                                     {
-                                        for (int dy = 0; dy < SCREEN_MULTIPLIER; dy++)
+                                        for (int dy = 0; dy < _screenMultiplier; dy++)
                                         {
                                             if (pixelY + dy < scaledHeight)
                                             {
-                                                for (int dx = 0; dx < SCREEN_MULTIPLIER; dx++)
+                                                for (int dx = 0; dx < _screenMultiplier; dx++)
                                                 {
-                                                    pixelBuffer[bufferIndex + (dy * scaledWidth) + dx] = colorValue;
+                                                    _pixelBuffer[bufferIndex + (dy * scaledWidth) + dx] = colorValue;
                                                 }
                                             }
                                         }
@@ -652,13 +652,13 @@ namespace SpaceInvaders
                     }
                     
                     // Store current frame for next frame's persistence effect
-                    if (phosphorPersistenceEnabled && crtEffectEnabled)
+                    if (_phosphorPersistenceEnabled && _crtEffectEnabled)
                     {
-                        Array.Copy(pixelBuffer, persistenceBuffer, pixelBuffer.Length);
+                        Array.Copy(_pixelBuffer, _persistenceBuffer, _pixelBuffer.Length);
                     }
                     
                     // Apply CRT post-processing effects
-                    if (crtEffectEnabled)
+                    if (_crtEffectEnabled)
                     {
                         ApplyCrtPostProcessing(scaledWidth, scaledHeight);
                     }
@@ -666,66 +666,66 @@ namespace SpaceInvaders
                     // Update texture with pixel buffer
                     unsafe
                     {
-                        fixed (uint* pixels = pixelBuffer)
+                        fixed (uint* pixels = _pixelBuffer)
                         {
                             SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = scaledWidth, h = scaledHeight };
-                            SDL.SDL_UpdateTexture(texture, ref fullRect, (IntPtr)pixels, scaledWidth * sizeof(uint));
+                            SDL.SDL_UpdateTexture(_texture, ref fullRect, (IntPtr)pixels, scaledWidth * sizeof(uint));
                         }
                     }
 
                     // Clear renderer to black first
-                    SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-                    SDL.SDL_RenderClear(renderer);
+                    SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
+                    SDL.SDL_RenderClear(_renderer);
                     
                     // Render background texture if enabled
-                    if (backgroundEnabled && backgroundTexture != IntPtr.Zero)
+                    if (_backgroundEnabled && _backgroundTexture != IntPtr.Zero)
                     {
-                        SDL.SDL_RenderCopy(renderer, backgroundTexture, IntPtr.Zero, IntPtr.Zero);
+                        SDL.SDL_RenderCopy(_renderer, _backgroundTexture, IntPtr.Zero, IntPtr.Zero);
                     }
                     
                     // Render game texture on top (with alpha blending - transparent pixels show background)
-                    SDL.SDL_RenderCopy(renderer, texture, IntPtr.Zero, IntPtr.Zero);
+                    SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
                     
-                    if (crtEffectEnabled)
+                    if (_crtEffectEnabled)
                     {
                         // Draw CRT scanlines for authentic appearance
-                        SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+                        SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
                         
                         // Vertical scanlines (due to rotated CRT)
-                        SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 35);
-                        for (int x = 0; x < scaledWidth; x += SCREEN_MULTIPLIER)
+                        SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 35);
+                        for (int x = 0; x < scaledWidth; x += _screenMultiplier)
                         {
-                            SDL.SDL_RenderDrawLine(renderer, x, 0, x, scaledHeight);
+                            SDL.SDL_RenderDrawLine(_renderer, x, 0, x, scaledHeight);
                         }
                         
                         // Horizontal scanlines (typical CRT raster lines)
-                        SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 25);
-                        for (int y = 0; y < scaledHeight; y += SCREEN_MULTIPLIER)
+                        SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 25);
+                        for (int y = 0; y < scaledHeight; y += _screenMultiplier)
                         {
-                            SDL.SDL_RenderDrawLine(renderer, 0, y, scaledWidth, y);
+                            SDL.SDL_RenderDrawLine(_renderer, 0, y, scaledWidth, y);
                         }
                         
                         // Apply vignette overlay for edge darkening
-                        if (vignetteTexture != IntPtr.Zero)
+                        if (_vignetteTexture != IntPtr.Zero)
                         {
-                            SDL.SDL_RenderCopy(renderer, vignetteTexture, IntPtr.Zero, IntPtr.Zero);
+                            SDL.SDL_RenderCopy(_renderer, _vignetteTexture, IntPtr.Zero, IntPtr.Zero);
                         }
                         
                         // Apply CRT screen mask with rounded corners
-                        if (screenMaskTexture != IntPtr.Zero)
+                        if (_screenMaskTexture != IntPtr.Zero)
                         {
-                            SDL.SDL_RenderCopy(renderer, screenMaskTexture, IntPtr.Zero, IntPtr.Zero);
+                            SDL.SDL_RenderCopy(_renderer, _screenMaskTexture, IntPtr.Zero, IntPtr.Zero);
                         }
                     }
                     
                     // Draw overlay message if active
-                    if (overlayMessage != null && DateTime.Now < overlayMessageEndTime)
+                    if (_overlayMessage != null && DateTime.Now < _overlayMessageEndTime)
                     {
                         DrawOverlayMessage(scaledWidth, scaledHeight);
                     }
-                    else if (overlayMessage != null)
+                    else if (_overlayMessage != null)
                     {
-                        overlayMessage = null;
+                        _overlayMessage = null;
                     }
                     
                     // Update and draw FPS counter
@@ -744,7 +744,7 @@ namespace SpaceInvaders
                         DrawFpsCounter(scaledWidth);
                     }
                     
-                    SDL.SDL_RenderPresent(renderer);
+                    SDL.SDL_RenderPresent(_renderer);
                     }
                     catch { }
                 }
@@ -752,31 +752,34 @@ namespace SpaceInvaders
         }
 
         /// <summary>
-        /// Applies CRT post-processing effects: horizontal blur, flicker, jitter, and warmup.
+        /// Applies CRT post-processing effects: bloom, horizontal blur, flicker, jitter, and warmup.
         /// </summary>
         private void ApplyCrtPostProcessing(int width, int height)
         {
-            // Calculate warmup brightness (0.0 to 1.0 over WARMUP_DURATION seconds)
-            float elapsedSeconds = (float)(DateTime.Now - startupTime).TotalSeconds;
-            float warmupFactor = Math.Min(1.0f, elapsedSeconds / WARMUP_DURATION);
+            // First pass: Apply bloom/glow effect
+            ApplyBloomEffect(width, height);
+            
+            // Calculate warmup brightness (0.0 to 1.0 over WarmupDuration seconds)
+            float elapsedSeconds = (float)(DateTime.Now - _startupTime).TotalSeconds;
+            float warmupFactor = Math.Min(1.0f, elapsedSeconds / WarmupDuration);
             // Ease-in curve for more realistic tube warmup
             warmupFactor = warmupFactor * warmupFactor;
             
             // Calculate flicker (random brightness variation)
-            float flickerFactor = 1.0f - (float)(crtRandom.NextDouble() * FLICKER_INTENSITY);
+            float flickerFactor = 1.0f - (float)(_crtRandom.NextDouble() * FlickerIntensity);
             
             // Combined brightness factor
             float brightnessFactor = warmupFactor * flickerFactor;
             
             // Determine if this frame has horizontal jitter
             int jitterOffset = 0;
-            if (crtRandom.NextDouble() < JITTER_PROBABILITY)
+            if (_crtRandom.NextDouble() < JitterProbability)
             {
-                jitterOffset = crtRandom.Next(-JITTER_MAX_PIXELS, JITTER_MAX_PIXELS + 1) * SCREEN_MULTIPLIER;
+                jitterOffset = _crtRandom.Next(-JitterMaxPixels, JitterMaxPixels + 1) * _screenMultiplier;
             }
             
             // Apply effects to pixel buffer
-            uint[] tempBuffer = new uint[pixelBuffer.Length];
+            uint[] tempBuffer = new uint[_pixelBuffer.Length];
             
             for (int y = 0; y < height; y++)
             {
@@ -793,7 +796,7 @@ namespace SpaceInvaders
                     }
                     
                     int jitteredIndex = y * width + jitteredX;
-                    uint pixel = pixelBuffer[jitteredIndex];
+                    uint pixel = _pixelBuffer[jitteredIndex];
                     
                     if (pixel == 0)
                     {
@@ -808,10 +811,10 @@ namespace SpaceInvaders
                     byte b = (byte)(pixel & 0xFF);
                     
                     // Apply horizontal blur (blend with neighbors)
-                    if (BLUR_STRENGTH > 0 && x > 0 && x < width - 1)
+                    if (BlurStrength > 0 && x > 0 && x < width - 1)
                     {
-                        uint leftPixel = pixelBuffer[jitteredIndex - 1];
-                        uint rightPixel = pixelBuffer[jitteredIndex + 1];
+                        uint leftPixel = _pixelBuffer[jitteredIndex - 1];
+                        uint rightPixel = _pixelBuffer[jitteredIndex + 1];
                         
                         if (leftPixel != 0 || rightPixel != 0)
                         {
@@ -822,8 +825,8 @@ namespace SpaceInvaders
                             byte rg = (byte)((rightPixel >> 8) & 0xFF);
                             byte rb = (byte)(rightPixel & 0xFF);
                             
-                            float centerWeight = 1.0f - BLUR_STRENGTH;
-                            float sideWeight = BLUR_STRENGTH * 0.5f;
+                            float centerWeight = 1.0f - BlurStrength;
+                            float sideWeight = BlurStrength * 0.5f;
                             
                             r = (byte)(r * centerWeight + (lr + rr) * sideWeight);
                             g = (byte)(g * centerWeight + (lg + rg) * sideWeight);
@@ -831,35 +834,97 @@ namespace SpaceInvaders
                         }
                     }
                     
-                    // Apply brightness (warmup + flicker)
-                    r = (byte)(r * brightnessFactor);
-                    g = (byte)(g * brightnessFactor);
-                    b = (byte)(b * brightnessFactor);
-                    a = (byte)(a * brightnessFactor);
+                    // Apply brightness (warmup + flicker) - but preserve bloom pixels (lower alpha)
+                    if (a > 100) // Full brightness pixels get warmup/flicker
+                    {
+                        r = (byte)(r * brightnessFactor);
+                        g = (byte)(g * brightnessFactor);
+                        b = (byte)(b * brightnessFactor);
+                        a = (byte)(a * brightnessFactor);
+                    }
+                    // Bloom pixels (lower alpha) pass through without modification
                     
                     tempBuffer[srcIndex] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
                 }
             }
             
             // Copy back to pixel buffer
-            Array.Copy(tempBuffer, pixelBuffer, pixelBuffer.Length);
+            Array.Copy(tempBuffer, _pixelBuffer, _pixelBuffer.Length);
+        }
+
+        /// <summary>
+        /// Applies bloom/glow effect - bright pixels bleed light into surrounding dark areas.
+        /// Uses a fast single-pass approach for performance.
+        /// </summary>
+        private void ApplyBloomEffect(int width, int height)
+        {
+            // Simple and fast: just add glow to immediate neighbors of lit pixels
+            uint[] bloomBuffer = new uint[_pixelBuffer.Length];
+            Array.Copy(_pixelBuffer, bloomBuffer, _pixelBuffer.Length);
+            
+            int step = _screenMultiplier; // Check every Nth pixel for speed
+            
+            for (int y = step; y < height - step; y += step)
+            {
+                for (int x = step; x < width - step; x += step)
+                {
+                    int index = y * width + x;
+                    uint pixel = _pixelBuffer[index];
+                    
+                    if (pixel == 0) continue;
+                    
+                    // Extract RGB and check brightness
+                    byte r = (byte)((pixel >> 16) & 0xFF);
+                    byte g = (byte)((pixel >> 8) & 0xFF);
+                    byte b = (byte)(pixel & 0xFF);
+                    byte a = (byte)((pixel >> 24) & 0xFF);
+                    
+                    // Use max channel for brightness (catches saturated colors like green)
+                    float brightness = Math.Max(r, Math.Max(g, b)) / 255.0f;
+                    if (brightness < 0.5f) continue; // Only bright pixels glow
+                    
+                    // Colored glow matching the source pixel
+                    byte glowR = r;
+                    byte glowG = g;
+                    byte glowB = b;
+                    byte glowA = 140;  // Increased visibility
+                    
+                    int[] offsets = { -width, width, -1, 1, -width-1, -width+1, width-1, width+1 }; // All 8 neighbors
+                    foreach (int offset in offsets)
+                    {
+                        int neighborIndex = index + offset;
+                        if (neighborIndex < 0 || neighborIndex >= _pixelBuffer.Length) continue;
+                        
+                        uint neighbor = bloomBuffer[neighborIndex];
+                        
+                        // Only add glow to dark/empty pixels
+                        if (neighbor == 0)
+                        {
+                            bloomBuffer[neighborIndex] = ((uint)glowA << 24) | ((uint)glowR << 16) | ((uint)glowG << 8) | glowB;
+                        }
+                    }
+                }
+            }
+            
+            // Copy bloom result back to pixel buffer
+            Array.Copy(bloomBuffer, _pixelBuffer, _pixelBuffer.Length);
         }
 
         private uint GetColorValue(int screenPos_X, int screenPos_Y)
         {
             // Convert SDL_Color to ARGB8888 format (0xAARRGGBB)
-            // Base values are for 1x resolution, scaled by SCREEN_MULTIPLIER
+            // Base values are for 1x resolution, scaled by _screenMultiplier
             SDL.SDL_Color color;
-            if (screenPos_Y < 239 * SCREEN_MULTIPLIER && screenPos_Y > 195 * SCREEN_MULTIPLIER)
-                color = greenColor;
-            else if (screenPos_Y < 256 * SCREEN_MULTIPLIER && screenPos_Y > 240 * SCREEN_MULTIPLIER && screenPos_X > 0 && screenPos_X < 127 * SCREEN_MULTIPLIER)
-                color = greenColor;
-            else if (screenPos_Y < 256 * SCREEN_MULTIPLIER && screenPos_Y > 240 * SCREEN_MULTIPLIER)
-                color = whiteColor2;
-            else if (screenPos_Y < 64 * SCREEN_MULTIPLIER && screenPos_Y > 32 * SCREEN_MULTIPLIER)
-                color = redColor;
+            if (screenPos_Y < 239 * _screenMultiplier && screenPos_Y > 195 * _screenMultiplier)
+                color = _greenColor;
+            else if (screenPos_Y < 256 * _screenMultiplier && screenPos_Y > 240 * _screenMultiplier && screenPos_X > 0 && screenPos_X < 127 * _screenMultiplier)
+                color = _greenColor;
+            else if (screenPos_Y < 256 * _screenMultiplier && screenPos_Y > 240 * _screenMultiplier)
+                color = _whiteColor2;
+            else if (screenPos_Y < 64 * _screenMultiplier && screenPos_Y > 32 * _screenMultiplier)
+                color = _redColor;
             else
-                color = whiteColor;
+                color = _whiteColor;
             
             return ((uint)color.a << 24) | ((uint)color.r << 16) | ((uint)color.g << 8) | color.b;
         }
@@ -869,58 +934,58 @@ namespace SpaceInvaders
             if (key == SDL.SDL_Keycode.SDLK_ESCAPE)
             {
                 Console.WriteLine("\nEscape pressed. Exiting...");
-                CancellationTokenSource.Cancel();
-                cpu?.Stop();
+                _cancellationTokenSource.Cancel();
+                _cpu?.Stop();
                 return;
             }
             
             if (key == SDL.SDL_Keycode.SDLK_LEFTBRACKET)
             {
-                ResizeDisplay(SCREEN_MULTIPLIER - 1);
+                ResizeDisplay(_screenMultiplier - 1);
                 return;
             }
             
             if (key == SDL.SDL_Keycode.SDLK_RIGHTBRACKET)
             {
-                ResizeDisplay(SCREEN_MULTIPLIER + 1);
+                ResizeDisplay(_screenMultiplier + 1);
                 return;
             }
             
             if (key == SDL.SDL_Keycode.SDLK_b)
             {
-                backgroundEnabled = !backgroundEnabled;
+                _backgroundEnabled = !_backgroundEnabled;
                 return;
             }
             
             if (key == SDL.SDL_Keycode.SDLK_r)
             {
-                crtEffectEnabled = !crtEffectEnabled;
-                phosphorPersistenceEnabled = crtEffectEnabled;
-                if (!phosphorPersistenceEnabled)
+                _crtEffectEnabled = !_crtEffectEnabled;
+                _phosphorPersistenceEnabled = _crtEffectEnabled;
+                if (!_phosphorPersistenceEnabled)
                 {
                     // Clear persistence buffer when disabling
-                    Array.Clear(persistenceBuffer, 0, persistenceBuffer.Length);
+                    Array.Clear(_persistenceBuffer, 0, _persistenceBuffer.Length);
                 }
-                overlayMessage = crtEffectEnabled ? "crt:on" : "crt:off";
-                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                _overlayMessage = _crtEffectEnabled ? "crt:on" : "crt:off";
+                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
                 return;
             }
             
             if (key == SDL.SDL_Keycode.SDLK_p)
             {
-                gamePaused = !gamePaused;
-                if (cpu != null) cpu.Paused = gamePaused;
-                overlayMessage = gamePaused ? "paused" : null;
-                overlayMessageEndTime = gamePaused ? DateTime.MaxValue : DateTime.Now;
+                _gamePaused = !_gamePaused;
+                if (_cpu != null) _cpu.Paused = _gamePaused;
+                _overlayMessage = _gamePaused ? "paused" : null;
+                _overlayMessageEndTime = _gamePaused ? DateTime.MaxValue : DateTime.Now;
                 return;
             }
             
             
             if (key == SDL.SDL_Keycode.SDLK_s)
             {
-                soundEnabled = !soundEnabled;
-                overlayMessage = soundEnabled ? "sound:on" : "sound:off";
-                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                _soundEnabled = !_soundEnabled;
+                _overlayMessage = _soundEnabled ? "sound:on" : "sound:off";
+                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
                 return;
             }
             
@@ -933,31 +998,31 @@ namespace SpaceInvaders
             // DIP Switch controls (F1-F3)
             if (key == SDL.SDL_Keycode.SDLK_F1)
             {
-                settings.CycleLives();
+                _settings.CycleLives();
                 ApplyDipSwitches();
-                settings.Save();
-                overlayMessage = $"lives:{settings.ActualLives}";
-                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                _settings.Save();
+                _overlayMessage = $"lives:{_settings.ActualLives}";
+                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
                 return;
             }
             
             if (key == SDL.SDL_Keycode.SDLK_F2)
             {
-                settings.ToggleBonusLife();
+                _settings.ToggleBonusLife();
                 ApplyDipSwitches();
-                settings.Save();
-                overlayMessage = $"bonus:{settings.BonusLifeThreshold}";
-                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                _settings.Save();
+                _overlayMessage = $"bonus:{_settings.BonusLifeThreshold}";
+                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
                 return;
             }
             
             if (key == SDL.SDL_Keycode.SDLK_F3)
             {
-                settings.ToggleCoinInfo();
+                _settings.ToggleCoinInfo();
                 ApplyDipSwitches();
-                settings.Save();
-                overlayMessage = settings.CoinInfoHidden ? "coininfo:off" : "coininfo:on";
-                overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                _settings.Save();
+                _overlayMessage = _settings.CoinInfoHidden ? "coininfo:off" : "coininfo:on";
+                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
                 return;
             }
             
@@ -1000,74 +1065,74 @@ namespace SpaceInvaders
             byte prevPort3 = new();
             byte prevPort5 = new();
 
-            while (!soundLoop.IsCancellationRequested)
+            while (!_soundLoop.IsCancellationRequested)
             {
-                cpu!.SoundTiming.WaitOne();
-                if (soundEnabled && prevPort3 != cpu!.PortOut[3])
+                _cpu!.SoundTiming.WaitOne();
+                if (_soundEnabled && prevPort3 != _cpu!.PortOut[3])
                 {
-                    if (((cpu.PortOut[3] & 0x01) == 0x01) && ((cpu.PortOut[3] & 0x01) != (prevPort3 & 0x01)))
-                        AudioPlaybackEngine.Instance.PlaySound(ufo_lowpitch);
-                    if (((cpu.PortOut[3] & 0x02) == 0x02) && ((cpu.PortOut[3] & 0x02) != (prevPort3 & 0x02)))
-                        AudioPlaybackEngine.Instance.PlaySound(shoot);
-                    if (((cpu.PortOut[3] & 0x04) == 0x04) && ((cpu.PortOut[3] & 0x04) != (prevPort3 & 0x04)))
-                        AudioPlaybackEngine.Instance.PlaySound(explosion);
-                    if (((cpu.PortOut[3] & 0x08) == 0x08) && ((cpu.PortOut[3] & 0x08) != (prevPort3 & 0x08)))
-                        AudioPlaybackEngine.Instance.PlaySound(invaderkilled);
-                    if (((cpu.PortOut[3] & 0x08) == 0x08) && ((cpu.PortOut[3] & 0x10) != (prevPort3 & 0x10)))
-                        AudioPlaybackEngine.Instance.PlaySound(extendedplay);
+                    if (((_cpu.PortOut[3] & 0x01) == 0x01) && ((_cpu.PortOut[3] & 0x01) != (prevPort3 & 0x01)))
+                        AudioPlaybackEngine.Instance.PlaySound(_ufoLowpitch);
+                    if (((_cpu.PortOut[3] & 0x02) == 0x02) && ((_cpu.PortOut[3] & 0x02) != (prevPort3 & 0x02)))
+                        AudioPlaybackEngine.Instance.PlaySound(_shoot);
+                    if (((_cpu.PortOut[3] & 0x04) == 0x04) && ((_cpu.PortOut[3] & 0x04) != (prevPort3 & 0x04)))
+                        AudioPlaybackEngine.Instance.PlaySound(_explosion);
+                    if (((_cpu.PortOut[3] & 0x08) == 0x08) && ((_cpu.PortOut[3] & 0x08) != (prevPort3 & 0x08)))
+                        AudioPlaybackEngine.Instance.PlaySound(_invaderkilled);
+                    if (((_cpu.PortOut[3] & 0x08) == 0x08) && ((_cpu.PortOut[3] & 0x10) != (prevPort3 & 0x10)))
+                        AudioPlaybackEngine.Instance.PlaySound(_extendedplay);
                 }
-                prevPort3 = cpu!.PortOut[3];
+                prevPort3 = _cpu!.PortOut[3];
 
-                if (soundEnabled && prevPort5 != cpu.PortOut[5])
+                if (_soundEnabled && prevPort5 != _cpu.PortOut[5])
                 {
-                    if (((cpu.PortOut[5] & 0x01) == 0x01) && ((cpu.PortOut[5] & 0x01) != (prevPort5 & 0x01)))
-                        AudioPlaybackEngine.Instance.PlaySound(fastinvader1);
-                    if (((cpu.PortOut[5] & 0x02) == 0x02) && ((cpu.PortOut[5] & 0x02) != (prevPort5 & 0x02)))
-                        AudioPlaybackEngine.Instance.PlaySound(fastinvader2);
-                    if (((cpu.PortOut[5] & 0x04) == 0x04) && ((cpu.PortOut[5] & 0x04) != (prevPort5 & 0x04)))
-                        AudioPlaybackEngine.Instance.PlaySound(fastinvader3);
-                    if (((cpu.PortOut[5] & 0x08) == 0x08) && ((cpu.PortOut[5] & 0x08) != (prevPort5 & 0x08)))
-                        AudioPlaybackEngine.Instance.PlaySound(fastinvader4);
-                    if (((cpu.PortOut[5] & 0x10) == 0x10) && ((cpu.PortOut[5] & 0x10) != (prevPort5 & 0x10)))
-                        AudioPlaybackEngine.Instance.PlaySound(explosion);
+                    if (((_cpu.PortOut[5] & 0x01) == 0x01) && ((_cpu.PortOut[5] & 0x01) != (prevPort5 & 0x01)))
+                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader1);
+                    if (((_cpu.PortOut[5] & 0x02) == 0x02) && ((_cpu.PortOut[5] & 0x02) != (prevPort5 & 0x02)))
+                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader2);
+                    if (((_cpu.PortOut[5] & 0x04) == 0x04) && ((_cpu.PortOut[5] & 0x04) != (prevPort5 & 0x04)))
+                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader3);
+                    if (((_cpu.PortOut[5] & 0x08) == 0x08) && ((_cpu.PortOut[5] & 0x08) != (prevPort5 & 0x08)))
+                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader4);
+                    if (((_cpu.PortOut[5] & 0x10) == 0x10) && ((_cpu.PortOut[5] & 0x10) != (prevPort5 & 0x10)))
+                        AudioPlaybackEngine.Instance.PlaySound(_explosion);
                 }
-                prevPort5 = cpu!.PortOut[5];
+                prevPort5 = _cpu!.PortOut[5];
                 Thread.Sleep(4);
             }
        }
 
         private void DrawOverlayMessage(int screenWidth, int screenHeight)
         {
-            if (overlayMessage == null) return;
+            if (_overlayMessage == null) return;
             
             // Character dimensions (scaled)
-            int charWidth = 5 * SCREEN_MULTIPLIER;
-            int charHeight = 7 * SCREEN_MULTIPLIER;
-            int charSpacing = 1 * SCREEN_MULTIPLIER;
-            int totalWidth = overlayMessage.Length * (charWidth + charSpacing) - charSpacing;
+            int charWidth = 5 * _screenMultiplier;
+            int charHeight = 7 * _screenMultiplier;
+            int charSpacing = 1 * _screenMultiplier;
+            int totalWidth = _overlayMessage.Length * (charWidth + charSpacing) - charSpacing;
             
             // Center position
             int startX = (screenWidth - totalWidth) / 2;
             int startY = (screenHeight - charHeight) / 2;
             
             // Draw semi-transparent background box
-            SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 180);
+            SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 180);
             SDL.SDL_Rect bgRect = new SDL.SDL_Rect
             {
-                x = startX - 10 * SCREEN_MULTIPLIER,
-                y = startY - 5 * SCREEN_MULTIPLIER,
-                w = totalWidth + 20 * SCREEN_MULTIPLIER,
-                h = charHeight + 10 * SCREEN_MULTIPLIER
+                x = startX - 10 * _screenMultiplier,
+                y = startY - 5 * _screenMultiplier,
+                w = totalWidth + 20 * _screenMultiplier,
+                h = charHeight + 10 * _screenMultiplier
             };
-            SDL.SDL_RenderFillRect(renderer, ref bgRect);
+            SDL.SDL_RenderFillRect(_renderer, ref bgRect);
             
             // Draw each character
-            SDL.SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0x00, 0xFF); // Yellow text
-            for (int i = 0; i < overlayMessage.Length; i++)
+            SDL.SDL_SetRenderDrawColor(_renderer, 0xFF, 0xFF, 0x00, 0xFF); // Yellow text
+            for (int i = 0; i < _overlayMessage.Length; i++)
             {
                 int charX = startX + i * (charWidth + charSpacing);
-                DrawChar(overlayMessage[i], charX, startY, SCREEN_MULTIPLIER);
+                DrawChar(_overlayMessage[i], charX, startY, _screenMultiplier);
             }
         }
 
@@ -1077,34 +1142,34 @@ namespace SpaceInvaders
             string fpsText = $"fps:{_currentFps:F1}";
             
             // Character dimensions (scaled)
-            int charWidth = 5 * SCREEN_MULTIPLIER;
-            int charHeight = 7 * SCREEN_MULTIPLIER;
-            int charSpacing = 1 * SCREEN_MULTIPLIER;
+            int charWidth = 5 * _screenMultiplier;
+            int charHeight = 7 * _screenMultiplier;
+            int charSpacing = 1 * _screenMultiplier;
             int totalWidth = fpsText.Length * (charWidth + charSpacing) - charSpacing;
             
             // Position in top-right corner with padding
-            int padding = 5 * SCREEN_MULTIPLIER;
+            int padding = 5 * _screenMultiplier;
             int startX = screenWidth - totalWidth - padding;
             int startY = padding;
             
             // Draw semi-transparent background box
-            SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 150);
+            SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 150);
             SDL.SDL_Rect bgRect = new SDL.SDL_Rect
             {
-                x = startX - 3 * SCREEN_MULTIPLIER,
-                y = startY - 2 * SCREEN_MULTIPLIER,
-                w = totalWidth + 6 * SCREEN_MULTIPLIER,
-                h = charHeight + 4 * SCREEN_MULTIPLIER
+                x = startX - 3 * _screenMultiplier,
+                y = startY - 2 * _screenMultiplier,
+                w = totalWidth + 6 * _screenMultiplier,
+                h = charHeight + 4 * _screenMultiplier
             };
-            SDL.SDL_RenderFillRect(renderer, ref bgRect);
+            SDL.SDL_RenderFillRect(_renderer, ref bgRect);
             
             // Draw FPS text in green
-            SDL.SDL_SetRenderDrawColor(renderer, 0x00, 0xFF, 0x00, 0xFF);
+            SDL.SDL_SetRenderDrawColor(_renderer, 0x00, 0xFF, 0x00, 0xFF);
             for (int i = 0; i < fpsText.Length; i++)
             {
                 int charX = startX + i * (charWidth + charSpacing);
-                DrawChar(fpsText[i], charX, startY, SCREEN_MULTIPLIER);
+                DrawChar(fpsText[i], charX, startY, _screenMultiplier);
             }
         }
 
@@ -1180,7 +1245,7 @@ namespace SpaceInvaders
                             w = scale,
                             h = scale
                         };
-                        SDL.SDL_RenderFillRect(renderer, ref pixelRect);
+                        SDL.SDL_RenderFillRect(_renderer, ref pixelRect);
                     }
                 }
             }
@@ -1191,51 +1256,51 @@ namespace SpaceInvaders
             switch (key)
             {
                 case 1: // Coin
-                    inputPorts[1] |= 0x01;
+                    _inputPorts[1] |= 0x01;
                     break;
 
                 case 2: // 1P Start
-                    inputPorts[1] |= 0x04;
+                    _inputPorts[1] |= 0x04;
                     break;
 
                 case 3: // 2P start
-                    inputPorts[1] |= 0x02;
+                    _inputPorts[1] |= 0x02;
                     break;
 
                 case 4: // 1P Left
-                    inputPorts[1] |= 0x20;
+                    _inputPorts[1] |= 0x20;
                     break;
 
                 case 5: // 1P Right
-                    inputPorts[1] |= 0x40;
+                    _inputPorts[1] |= 0x40;
                     break;
 
                 case 6: // 1P Fire
-                    inputPorts[1] |= 0x10;
+                    _inputPorts[1] |= 0x10;
                     break;
 
                 case 7: // 2P Left
-                    inputPorts[2] |= 0x20;
+                    _inputPorts[2] |= 0x20;
                     break;
 
                 case 8: // 2P Right
-                    inputPorts[2] |= 0x40;
+                    _inputPorts[2] |= 0x40;
                     break;
 
                 case 9: // 2P Fire
-                    inputPorts[2] |= 0x10;
+                    _inputPorts[2] |= 0x10;
                     break;
 
                 case 10: // Easter Egg Part 1
-                    inputPorts[1] += 0x72;
+                    _inputPorts[1] += 0x72;
                     break;
 
                 case 11: // Easter Egg Part 2
-                    inputPorts[1] += 0x34;
+                    _inputPorts[1] += 0x34;
                     break;
 
                 case 12: // Tilt
-                    inputPorts[2] += 0x04;
+                    _inputPorts[2] += 0x04;
                     break;
             }
         }
@@ -1245,51 +1310,51 @@ namespace SpaceInvaders
             switch (key)
             {
                 case 1: // Coin
-                    inputPorts[1] &= 0xFE;
+                    _inputPorts[1] &= 0xFE;
                     break;
 
                 case 2: // 1P Start
-                    inputPorts[1] &= 0xFB;
+                    _inputPorts[1] &= 0xFB;
                     break;
 
                 case 3: // 2P start
-                    inputPorts[1] &= 0xFD;
+                    _inputPorts[1] &= 0xFD;
                     break;
 
                 case 4: // 1P Left
-                    inputPorts[1] &= 0xDF;
+                    _inputPorts[1] &= 0xDF;
                     break;
 
                 case 5: // 1P Right
-                    inputPorts[1] &= 0xBF;
+                    _inputPorts[1] &= 0xBF;
                     break;
 
                 case 6: // 1P Fire
-                    inputPorts[1] &= 0xEF;
+                    _inputPorts[1] &= 0xEF;
                     break;
 
                 case 7: // 2P Left
-                    inputPorts[2] &= 0xDF;
+                    _inputPorts[2] &= 0xDF;
                     break;
 
                 case 8: // 2P Right
-                    inputPorts[2] &= 0xBF;
+                    _inputPorts[2] &= 0xBF;
                     break;
 
                 case 9: // 2P Fire
-                    inputPorts[2] &= 0xEF;
+                    _inputPorts[2] &= 0xEF;
                     break;
 
                 case 10: // Easter Egg Part 1
-                    inputPorts[1] &= 0x8D;
+                    _inputPorts[1] &= 0x8D;
                     break;
 
                 case 11: // Easter Egg Part 2
-                    inputPorts[1] &= 0xCB;
+                    _inputPorts[1] &= 0xCB;
                     break;
 
                 case 12: // Tilt
-                    inputPorts[2] &= 0xFB;
+                    _inputPorts[2] &= 0xFB;
                     break;
             }
         }

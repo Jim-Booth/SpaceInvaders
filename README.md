@@ -9,6 +9,7 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
 - **Accurate Intel 8080 CPU emulation** - Full implementation of all 8080 opcodes
 - **Authentic display rendering** - Color zones matching original arcade cabinet (green, red, white)
 - **CRT effects** - Authentic arcade monitor simulation (Default ON):
+  - Bloom/glow (bright pixels bleed light into surroundings)
   - Horizontal and vertical scanlines
   - Rounded corners (barrel distortion)
   - Vignette edge darkening
@@ -149,6 +150,7 @@ The emulator includes authentic CRT monitor effects to recreate the arcade exper
 
 | Effect | Description |
 |--------|-------------|
+| **Bloom/Glow** | Bright pixels bleed light into surrounding dark areas with Gaussian falloff |
 | **Scanlines** | Horizontal and vertical lines simulating CRT raster |
 | **Vignette** | Edge darkening with quadratic falloff from center |
 | **Rounded Corners** | Barrel distortion mask simulating curved CRT glass |
