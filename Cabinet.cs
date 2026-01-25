@@ -37,6 +37,9 @@ namespace SpaceInvaders
         // CRT effects handler
         private CrtEffects? _crtEffects;
         
+        // Overlay renderer
+        private OverlayRenderer? _overlay;
+        
         private IntPtr _window;
         private IntPtr _renderer;
         private IntPtr _texture;
@@ -44,15 +47,7 @@ namespace SpaceInvaders
         private bool _backgroundEnabled = true;
         private bool _soundEnabled = true;
         private bool _gamePaused = false;
-        private string? _overlayMessage = null;
-        private DateTime _overlayMessageEndTime;
         private uint[] _pixelBuffer;
-        
-        // FPS counter
-        private bool _fpsDisplayEnabled = false;
-        private int _frameCount = 0;
-        private DateTime _lastFpsUpdate = DateTime.Now;
-        private double _currentFps = 0.0;
         private static readonly string AppPath = AppDomain.CurrentDomain.BaseDirectory;
 
         private readonly CachedSound _ufoLowpitch = new(Path.Combine(AppPath, "SOUNDS", "ufo_lowpitch.wav"));
@@ -79,6 +74,7 @@ namespace SpaceInvaders
             InitializeSDL();
             LoadBackgroundTexture();
             _crtEffects = new CrtEffects(_renderer, ScreenWidth, ScreenHeight, _screenMultiplier);
+            _overlay = new OverlayRenderer(_renderer);
         }
 
         private void LoadBackgroundTexture()
@@ -387,8 +383,7 @@ namespace SpaceInvaders
                             _crtEffects.RenderOverlays(_renderer, scaledWidth, scaledHeight, _screenMultiplier);
                         }
                         
-                        if (_overlayMessage != null)
-                            DrawOverlayMessage(scaledWidth, scaledHeight);
+                        _overlay?.DrawMessage(scaledWidth, scaledHeight, _screenMultiplier);
                         
                         SDL.SDL_RenderPresent(_renderer);
                     }
@@ -484,30 +479,11 @@ namespace SpaceInvaders
                     }
                     
                     // Draw overlay message if active
-                    if (_overlayMessage != null && DateTime.Now < _overlayMessageEndTime)
-                    {
-                        DrawOverlayMessage(scaledWidth, scaledHeight);
-                    }
-                    else if (_overlayMessage != null)
-                    {
-                        _overlayMessage = null;
-                    }
+                    _overlay?.DrawMessage(scaledWidth, scaledHeight, _screenMultiplier);
                     
                     // Update and draw FPS counter
-                    _frameCount++;
-                    var now = DateTime.Now;
-                    var elapsed = (now - _lastFpsUpdate).TotalSeconds;
-                    if (elapsed >= 0.5) // Update FPS every 0.5 seconds
-                    {
-                        _currentFps = _frameCount / elapsed;
-                        _frameCount = 0;
-                        _lastFpsUpdate = now;
-                    }
-                    
-                    if (_fpsDisplayEnabled)
-                    {
-                        DrawFpsCounter(scaledWidth);
-                    }
+                    _overlay?.UpdateFps();
+                    _overlay?.DrawFpsCounter(scaledWidth, _screenMultiplier);
                     
                     SDL.SDL_RenderPresent(_renderer);
                     }
@@ -573,8 +549,7 @@ namespace SpaceInvaders
                         // Clear persistence buffer when disabling
                         _crtEffects.ClearPersistence();
                     }
-                    _overlayMessage = _crtEffects.Enabled ? "crt:on" : "crt:off";
-                    _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                    _overlay?.ShowMessage(_crtEffects.Enabled ? "crt:on" : "crt:off", TimeSpan.FromSeconds(2));
                 }
                 return;
             }
@@ -583,23 +558,24 @@ namespace SpaceInvaders
             {
                 _gamePaused = !_gamePaused;
                 if (_cpu != null) _cpu.Paused = _gamePaused;
-                _overlayMessage = _gamePaused ? "paused" : null;
-                _overlayMessageEndTime = _gamePaused ? DateTime.MaxValue : DateTime.Now;
+                if (_gamePaused)
+                    _overlay?.ShowPersistentMessage("paused");
+                else
+                    _overlay?.ClearMessage();
                 return;
             }
-            
-            
+              
             if (key == SDL.SDL_Keycode.SDLK_s)
             {
                 _soundEnabled = !_soundEnabled;
-                _overlayMessage = _soundEnabled ? "sound:on" : "sound:off";
-                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                _overlay?.ShowMessage(_soundEnabled ? "sound:on" : "sound:off", TimeSpan.FromSeconds(2));
                 return;
             }
             
             if (key == SDL.SDL_Keycode.SDLK_f)
             {
-                _fpsDisplayEnabled = !_fpsDisplayEnabled;
+                if (_overlay != null)
+                    _overlay.FpsDisplayEnabled = !_overlay.FpsDisplayEnabled;
                 return;
             }
             
@@ -609,8 +585,7 @@ namespace SpaceInvaders
                 _settings.CycleLives();
                 ApplyDipSwitches();
                 _settings.Save();
-                _overlayMessage = $"lives:{_settings.ActualLives}";
-                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                _overlay?.ShowMessage($"lives:{_settings.ActualLives}", TimeSpan.FromSeconds(2));
                 return;
             }
             
@@ -619,8 +594,7 @@ namespace SpaceInvaders
                 _settings.ToggleBonusLife();
                 ApplyDipSwitches();
                 _settings.Save();
-                _overlayMessage = $"bonus:{_settings.BonusLifeThreshold}";
-                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                _overlay?.ShowMessage($"bonus:{_settings.BonusLifeThreshold}", TimeSpan.FromSeconds(2));
                 return;
             }
             
@@ -629,8 +603,7 @@ namespace SpaceInvaders
                 _settings.ToggleCoinInfo();
                 ApplyDipSwitches();
                 _settings.Save();
-                _overlayMessage = _settings.CoinInfoHidden ? "coininfo:off" : "coininfo:on";
-                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
+                _overlay?.ShowMessage(_settings.CoinInfoHidden ? "coininfo:off" : "coininfo:on", TimeSpan.FromSeconds(2));
                 return;
             }
             
@@ -708,156 +681,6 @@ namespace SpaceInvaders
                 Thread.Sleep(4);
             }
        }
-
-        private void DrawOverlayMessage(int screenWidth, int screenHeight)
-        {
-            if (_overlayMessage == null) return;
-            
-            // Character dimensions (scaled)
-            int charWidth = 5 * _screenMultiplier;
-            int charHeight = 7 * _screenMultiplier;
-            int charSpacing = 1 * _screenMultiplier;
-            int totalWidth = _overlayMessage.Length * (charWidth + charSpacing) - charSpacing;
-            
-            // Center position
-            int startX = (screenWidth - totalWidth) / 2;
-            int startY = (screenHeight - charHeight) / 2;
-            
-            // Draw semi-transparent background box
-            SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-            SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 180);
-            SDL.SDL_Rect bgRect = new SDL.SDL_Rect
-            {
-                x = startX - 10 * _screenMultiplier,
-                y = startY - 5 * _screenMultiplier,
-                w = totalWidth + 20 * _screenMultiplier,
-                h = charHeight + 10 * _screenMultiplier
-            };
-            SDL.SDL_RenderFillRect(_renderer, ref bgRect);
-            
-            // Draw each character
-            SDL.SDL_SetRenderDrawColor(_renderer, 0xFF, 0xFF, 0x00, 0xFF); // Yellow text
-            for (int i = 0; i < _overlayMessage.Length; i++)
-            {
-                int charX = startX + i * (charWidth + charSpacing);
-                DrawChar(_overlayMessage[i], charX, startY, _screenMultiplier);
-            }
-        }
-
-        private void DrawFpsCounter(int screenWidth)
-        {
-            // Format FPS string
-            string fpsText = $"fps:{_currentFps:F1}";
-            
-            // Character dimensions (scaled)
-            int charWidth = 5 * _screenMultiplier;
-            int charHeight = 7 * _screenMultiplier;
-            int charSpacing = 1 * _screenMultiplier;
-            int totalWidth = fpsText.Length * (charWidth + charSpacing) - charSpacing;
-            
-            // Position in top-right corner with padding
-            int padding = 5 * _screenMultiplier;
-            int startX = screenWidth - totalWidth - padding;
-            int startY = padding;
-            
-            // Draw semi-transparent background box
-            SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-            SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 150);
-            SDL.SDL_Rect bgRect = new SDL.SDL_Rect
-            {
-                x = startX - 3 * _screenMultiplier,
-                y = startY - 2 * _screenMultiplier,
-                w = totalWidth + 6 * _screenMultiplier,
-                h = charHeight + 4 * _screenMultiplier
-            };
-            SDL.SDL_RenderFillRect(_renderer, ref bgRect);
-            
-            // Draw FPS text in green
-            SDL.SDL_SetRenderDrawColor(_renderer, 0x00, 0xFF, 0x00, 0xFF);
-            for (int i = 0; i < fpsText.Length; i++)
-            {
-                int charX = startX + i * (charWidth + charSpacing);
-                DrawChar(fpsText[i], charX, startY, _screenMultiplier);
-            }
-        }
-
-        private void DrawChar(char c, int x, int y, int scale)
-        {
-            // Complete 5x7 pixel font for all alphanumeric characters and symbols
-            // Bit 4 = leftmost pixel, bit 0 = rightmost pixel
-            byte[] pattern = c switch
-            {
-                // Lowercase letters
-                'a' => [0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],
-                'b' => [0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E],
-                'c' => [0x0E, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0E],
-                'd' => [0x1C, 0x12, 0x11, 0x11, 0x11, 0x12, 0x1C],
-                'e' => [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x1F],
-                'f' => [0x1F, 0x10, 0x10, 0x1E, 0x10, 0x10, 0x10],
-                'g' => [0x0E, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0F],
-                'h' => [0x11, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11],
-                'i' => [0x0E, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0E],
-                'j' => [0x07, 0x02, 0x02, 0x02, 0x02, 0x12, 0x0C],
-                'k' => [0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11],
-                'l' => [0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1F],
-                'm' => [0x11, 0x1B, 0x15, 0x15, 0x11, 0x11, 0x11],
-                'n' => [0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11],
-                'o' => [0x0E, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],
-                'p' => [0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10],
-                'q' => [0x0E, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0D],
-                'r' => [0x1E, 0x11, 0x11, 0x1E, 0x14, 0x12, 0x11],
-                's' => [0x0E, 0x11, 0x10, 0x0E, 0x01, 0x11, 0x0E],
-                't' => [0x1F, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04],
-                'u' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0E],
-                'v' => [0x11, 0x11, 0x11, 0x11, 0x11, 0x0A, 0x04],
-                'w' => [0x11, 0x11, 0x11, 0x15, 0x15, 0x1B, 0x11],
-                'x' => [0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11],
-                'y' => [0x11, 0x11, 0x11, 0x0A, 0x04, 0x04, 0x04],
-                'z' => [0x1F, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1F],
-                
-                // Numbers
-                '0' => [0x0E, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0E],
-                '1' => [0x04, 0x0C, 0x04, 0x04, 0x04, 0x04, 0x0E],
-                '2' => [0x0E, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1F],
-                '3' => [0x0E, 0x11, 0x01, 0x06, 0x01, 0x11, 0x0E],
-                '4' => [0x02, 0x06, 0x0A, 0x12, 0x1F, 0x02, 0x02],
-                '5' => [0x1F, 0x10, 0x1E, 0x01, 0x01, 0x11, 0x0E],
-                '6' => [0x06, 0x08, 0x10, 0x1E, 0x11, 0x11, 0x0E],
-                '7' => [0x1F, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08],
-                '8' => [0x0E, 0x11, 0x11, 0x0E, 0x11, 0x11, 0x0E],
-                '9' => [0x0E, 0x11, 0x11, 0x0F, 0x01, 0x02, 0x0C],
-                
-                // Symbols
-                ':' => [0x00, 0x04, 0x04, 0x00, 0x04, 0x04, 0x00],
-                '.' => [0x00, 0x00, 0x00, 0x00, 0x00, 0x0C, 0x0C],
-                '!' => [0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x04],
-                '?' => [0x0E, 0x11, 0x01, 0x02, 0x04, 0x00, 0x04],
-                '-' => [0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00],
-                '+' => [0x00, 0x04, 0x04, 0x1F, 0x04, 0x04, 0x00],
-                '/' => [0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10],
-                ' ' => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
-                
-                _ => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
-            };
-            
-            for (int row = 0; row < 7; row++)
-            {
-                for (int col = 0; col < 5; col++)
-                {
-                    if ((pattern[row] & (0x10 >> col)) != 0)
-                    {
-                        SDL.SDL_Rect pixelRect = new SDL.SDL_Rect
-                        {
-                            x = x + col * scale,
-                            y = y + row * scale,
-                            w = scale,
-                            h = scale
-                        };
-                        SDL.SDL_RenderFillRect(_renderer, ref pixelRect);
-                    }
-                }
-            }
-        }
 
         private void KeyPressed(uint key)
         {
