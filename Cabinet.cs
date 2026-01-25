@@ -21,7 +21,7 @@ namespace SpaceInvaders
         private Thread? _cpuThread;
         private Thread? _displayThread;
         private Thread? _soundThread;
-
+        
         private static readonly CancellationTokenSource _cancellationTokenSource = new();
         private static readonly CancellationToken _displayLoop = _cancellationTokenSource.Token;
         private static readonly CancellationToken _soundLoop = _cancellationTokenSource.Token;
@@ -41,7 +41,6 @@ namespace SpaceInvaders
         
         // Phosphor persistence settings (ghosting/trails)
         private readonly float PhosphorDecay = 0.75f;     // How much of previous frame remains (0.0-1.0)
-        private bool _phosphorPersistenceEnabled = true;
         private uint[] _persistenceBuffer = [];             // Stores fading pixel data
         
         // Additional CRT effects
@@ -580,7 +579,7 @@ namespace SpaceInvaders
                     try
                     {
                     // Apply phosphor persistence (fade previous frame) or clear
-                    if (_phosphorPersistenceEnabled && _crtEffectEnabled)
+                    if (_crtEffectEnabled)
                     {
                         // Decay previous frame's pixels (phosphor fade effect)
                         for (int i = 0; i < _persistenceBuffer.Length; i++)
@@ -652,7 +651,7 @@ namespace SpaceInvaders
                     }
                     
                     // Store current frame for next frame's persistence effect
-                    if (_phosphorPersistenceEnabled && _crtEffectEnabled)
+                    if (_crtEffectEnabled)
                     {
                         Array.Copy(_pixelBuffer, _persistenceBuffer, _pixelBuffer.Length);
                     }
@@ -960,8 +959,7 @@ namespace SpaceInvaders
             if (key == SDL.SDL_Keycode.SDLK_r)
             {
                 _crtEffectEnabled = !_crtEffectEnabled;
-                _phosphorPersistenceEnabled = _crtEffectEnabled;
-                if (!_phosphorPersistenceEnabled)
+                if (!_crtEffectEnabled)
                 {
                     // Clear persistence buffer when disabling
                     Array.Clear(_persistenceBuffer, 0, _persistenceBuffer.Length);
