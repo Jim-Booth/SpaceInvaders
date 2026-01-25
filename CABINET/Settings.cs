@@ -11,7 +11,7 @@
 
 using System.Text.Json;
 
-namespace SpaceInvaders
+namespace SpaceInvaders.CABINET
 {
     /// <summary>
     /// DIP switch and game settings with JSON file persistence.

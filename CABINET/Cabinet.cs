@@ -12,7 +12,7 @@
 using SpaceInvaders.MAINBOARD;
 using SDL2;
 
-namespace SpaceInvaders
+namespace SpaceInvaders.CABINET
 {
     public class Cabinet
     {

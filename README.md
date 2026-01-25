@@ -115,14 +115,19 @@ Place WAV sound files in the `SOUNDS/` directory:
 
 ## Background Texture
 
-Place a `Cabinet.bmp` file in the application directory to display a background image behind the game. Press **B** to toggle visibility at runtime.
+Place a `Cabinet.bmp` file in the `CABINET/` directory to display a background image behind the game. Press **B** to toggle visibility at runtime.
 
 ## Project Structure
 
 ```
 SpaceInvaders/
 ├── Program.cs              # Entry point
-├── Cabinet.cs              # Arcade cabinet simulation, SDL2 rendering
+├── CABINET/
+│   ├── Cabinet.cs          # Arcade cabinet simulation, SDL2 rendering
+│   ├── CrtEffects.cs       # CRT display effects (bloom, scanlines, etc.)
+│   ├── OverlayRenderer.cs  # Text overlay and FPS counter rendering
+│   ├── Settings.cs         # DIP switch and game settings persistence
+│   └── Cabinet.bmp         # Optional background texture
 ├── MAINBOARD/
 │   ├── Intel8080.cs        # CPU emulation core
 │   ├── Memory.cs           # 64KB addressable memory
@@ -130,8 +135,7 @@ SpaceInvaders/
 │   ├── Flags.cs            # Status flags (Z, S, P, CY, AC)
 │   └── Audio.cs            # SFML audio playback
 ├── ROMS/                   # ROM files (not included)
-├── SOUNDS/                 # Sound effect WAV files
-└── Cabinet.bmp             # Optional background texture
+└── SOUNDS/                 # Sound effect WAV files
 ```
 
 ## Technical Details

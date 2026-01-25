@@ -11,7 +11,7 @@
 
 using SDL2;
 
-namespace SpaceInvaders
+namespace SpaceInvaders.CABINET
 {
     /// <summary>
     /// Manages CRT visual effects for authentic arcade cabinet appearance.

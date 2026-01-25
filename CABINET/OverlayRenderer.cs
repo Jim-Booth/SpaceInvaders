@@ -11,7 +11,7 @@
 
 using SDL2;
 
-namespace SpaceInvaders
+namespace SpaceInvaders.CABINET
 {
     /// <summary>
     /// Renders overlay text messages and FPS counter on the game display.

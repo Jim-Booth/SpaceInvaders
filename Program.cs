@@ -9,7 +9,7 @@
 // Copyright:   (c) 2024-2026 James Booth
 // ============================================================================
 
-using SpaceInvaders;
+using SpaceInvaders.CABINET;
 
 Cabinet cabinet = new();
 cabinet.Start();
