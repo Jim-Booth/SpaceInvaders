@@ -244,17 +244,15 @@ namespace SpaceInvaders
                 }
             }
             
-            // Save high score before shutdown
+            // Save high score before shutdown (only if changed)
             if (_cpu != null)
             {
                 int currentHighScore = _cpu.Memory.ReadHighScore();
-                Console.WriteLine($"Current high score in memory: {currentHighScore}, Saved: {_settings.HighScore}");
                 if (currentHighScore > _settings.HighScore)
                 {
                     _settings.HighScore = currentHighScore;
-                    Console.WriteLine($"New high score! Saving: {currentHighScore}");
+                    _settings.Save();
                 }
-                _settings.Save();
             }
             
             // Wait for threads to finish
