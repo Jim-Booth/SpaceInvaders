@@ -887,7 +887,7 @@ namespace SpaceInvaders
                     byte glowR = r;
                     byte glowG = g;
                     byte glowB = b;
-                    byte glowA = 140;  // Increased visibility
+                    byte glowA = 120;
                     
                     int[] offsets = { -width, width, -1, 1, -width-1, -width+1, width-1, width+1 }; // All 8 neighbors
                     foreach (int offset in offsets)
