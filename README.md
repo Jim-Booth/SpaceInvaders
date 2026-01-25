@@ -85,7 +85,8 @@ Settings are saved to `settings.json` and persist between sessions.
 | **Bonus Life** | 1500 or 1000 points | 1500 | F2 |
 | **Coin Info** | Show or hide in demo | Show | F3 |
 
-Changes are saved automatically. **Note:** The lives setting only displays correctly during active gameplay. During demo/attraction mode, the change may not be visible until a new game is started.
+Changes are saved automatically. 
+**Note:** The lives setting only displays correctly during active gameplay. During demo/attraction mode, the change may not be visible until a new game is started.
 
 ## ROM Files
 
