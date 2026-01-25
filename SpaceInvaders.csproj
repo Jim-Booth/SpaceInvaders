@@ -17,8 +17,9 @@
 
   <!-- Copy Cabinet.bmp to output directory -->
   <ItemGroup>
-    <None Update="CABINET\Cabinet.bmp">
+    <None Include="CABINET\Cabinet.bmp">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Cabinet.bmp</Link>
     </None>
   </ItemGroup>
 
