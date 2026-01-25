@@ -75,7 +75,9 @@ dotnet run
 
 ## DIP Switches
 
-The emulator simulates the DIP switches found on the original arcade PCB. Settings are saved to `settings.json` and persist between sessions.
+The original Space Invaders arcade PCB featured physical DIP (Dual In-line Package) switches - small toggle switches that arcade operators would configure before powering on the machine. These were used to adjust game difficulty and revenue settings. This emulator lets you modify these settings via function keys for a customized experience.
+
+Settings are saved to `settings.json` and persist between sessions.
 
 | Setting | Options | Default | Key |
 |---------|---------|---------|-----|
