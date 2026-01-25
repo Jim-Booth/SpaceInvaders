@@ -31,6 +31,9 @@ namespace SpaceInvaders
         // DIP Switch 3: Coin info display in demo (false=show, true=hide)
         public bool CoinInfoHidden { get; set; } = false;  // Default: show
         
+        // High score persistence (not a DIP switch - modern convenience feature)
+        public int HighScore { get; set; } = 0;
+        
         /// <summary>
         /// Gets the actual number of lives based on DIP switch setting.
         /// </summary>
@@ -92,7 +95,7 @@ namespace SpaceInvaders
                     var settings = JsonSerializer.Deserialize<GameSettings>(json);
                     if (settings != null)
                     {
-                        Console.WriteLine($"Loaded settings: Lives={settings.ActualLives}, Bonus={settings.BonusLifeThreshold}, CoinInfo={!settings.CoinInfoHidden}");
+                        Console.WriteLine($"Loaded settings: Lives={settings.ActualLives}, Bonus={settings.BonusLifeThreshold}, CoinInfo={!settings.CoinInfoHidden}, HighScore={settings.HighScore}");
                         return settings;
                     }
                 }

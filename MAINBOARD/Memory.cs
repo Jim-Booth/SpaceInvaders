@@ -34,5 +34,41 @@ namespace SpaceInvaders.MAINBOARD
         {
             memory[addr] = value;
         }
+        
+        /// <summary>
+        /// Reads the high score from memory (0x20F4-0x20F5) as BCD and converts to integer.
+        /// Space Invaders stores scores in BCD format with an implicit trailing zero.
+        /// </summary>
+        public int ReadHighScore()
+        {
+            // High score stored at 0x20F4 (low byte) and 0x20F5 (high byte) in BCD
+            byte low = memory[0x20F4];
+            byte high = memory[0x20F5];
+            
+            // Convert BCD to integer (each nibble is a digit)
+            int score = ((high >> 4) & 0x0F) * 1000 +
+                        (high & 0x0F) * 100 +
+                        ((low >> 4) & 0x0F) * 10 +
+                        (low & 0x0F);
+            
+            // Multiply by 10 because displayed scores have implicit trailing 0
+            return score * 10;
+        }
+        
+        /// <summary>
+        /// Writes a high score value to memory (0x20F4-0x20F5) in BCD format.
+        /// </summary>
+        public void WriteHighScore(int score)
+        {
+            // Remove trailing zero (scores are always multiples of 10)
+            int bcdValue = score / 10;
+            
+            // Convert integer to BCD (4 digits)
+            byte low = (byte)(((bcdValue / 10) % 10 << 4) | (bcdValue % 10));
+            byte high = (byte)(((bcdValue / 1000) % 10 << 4) | ((bcdValue / 100) % 10));
+            
+            memory[0x20F4] = low;
+            memory[0x20F5] = high;
+        }
     }
 }

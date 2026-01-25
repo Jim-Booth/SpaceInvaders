@@ -409,6 +409,19 @@ namespace SpaceInvaders
                 }
             }
             
+            // Save high score before shutdown
+            if (cpu != null)
+            {
+                int currentHighScore = cpu.Memory.ReadHighScore();
+                Console.WriteLine($"Current high score in memory: {currentHighScore}, Saved: {settings.HighScore}");
+                if (currentHighScore > settings.HighScore)
+                {
+                    settings.HighScore = currentHighScore;
+                    Console.WriteLine($"New high score! Saving: {currentHighScore}");
+                }
+                settings.Save();
+            }
+            
             // Wait for threads to finish
             Console.WriteLine("Waiting for threads to terminate...");
             cpu_thread?.Join(2000);
@@ -460,6 +473,16 @@ namespace SpaceInvaders
             cpu_thread.Start();
 
             while (!cpu.Running) { }
+            
+            // Restore high score from persistent settings
+            // Must be done AFTER CPU starts, as the game's init code clears RAM
+            if (settings.HighScore > 0)
+            {
+                // Wait for game initialization to complete (clears RAM including high score area)
+                Thread.Sleep(100);
+                cpu.Memory.WriteHighScore(settings.HighScore);
+                Console.WriteLine($"Restored high score: {settings.HighScore}");
+            }
 
             port_thread = new Thread(PortThread)
             {
