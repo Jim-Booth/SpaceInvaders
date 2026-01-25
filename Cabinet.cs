@@ -21,7 +21,7 @@ namespace SpaceInvaders
         private Thread? _cpuThread;
         private Thread? _displayThread;
         private Thread? _soundThread;
-        
+
         private static readonly CancellationTokenSource _cancellationTokenSource = new();
         private static readonly CancellationToken _displayLoop = _cancellationTokenSource.Token;
         private static readonly CancellationToken _soundLoop = _cancellationTokenSource.Token;
@@ -34,30 +34,13 @@ namespace SpaceInvaders
         private int _screenMultiplier = 2;
         private readonly object _resizeLock = new();
         
-        // CRT curvature settings
-        private readonly float BarrelDistortion = 0.15f;  // Subtle barrel distortion
-        private readonly float CornerRadius = 0.08f;      // Rounded corner radius (as fraction of screen)
-        private bool _crtEffectEnabled = true;
-        
-        // Phosphor persistence settings (ghosting/trails)
-        private readonly float PhosphorDecay = 0.75f;     // How much of previous frame remains (0.0-1.0)
-        private uint[] _persistenceBuffer = [];             // Stores fading pixel data
-        
-        // Additional CRT effects
-        private readonly float FlickerIntensity = 0.02f;  // 2% brightness variation
-        private readonly float JitterProbability = 0.002f; // 0.5% chance of jitter per frame
-        private readonly int JitterMaxPixels = 1;        // Maximum horizontal jitter
-        private readonly float WarmupDuration = 2.0f;     // Seconds to reach full brightness
-        private readonly float BlurStrength = 0.3f;       // Horizontal blur blend factor
-        private readonly Random _crtRandom = new();
-        private DateTime _startupTime;
+        // CRT effects handler
+        private CrtEffects? _crtEffects;
         
         private IntPtr _window;
         private IntPtr _renderer;
         private IntPtr _texture;
         private IntPtr _backgroundTexture;
-        private IntPtr _vignetteTexture;
-        private IntPtr _screenMaskTexture;
         private bool _backgroundEnabled = true;
         private bool _soundEnabled = true;
         private bool _gamePaused = false;
@@ -92,13 +75,10 @@ namespace SpaceInvaders
         {
             _settings = GameSettings.Load();
             ApplyDipSwitches();
-            _startupTime = DateTime.Now;
             _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
-            _persistenceBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
             InitializeSDL();
             LoadBackgroundTexture();
-            CreateVignetteTexture();
-            CreateScreenMaskTexture();
+            _crtEffects = new CrtEffects(_renderer, ScreenWidth, ScreenHeight, _screenMultiplier);
         }
 
         private void LoadBackgroundTexture()
@@ -126,150 +106,6 @@ namespace SpaceInvaders
             }
         }
 
-        private void CreateVignetteTexture()
-        {
-            int width = ScreenWidth * _screenMultiplier;
-            int height = ScreenHeight * _screenMultiplier;
-            
-            // Destroy old vignette texture if it exists
-            if (_vignetteTexture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(_vignetteTexture);
-            
-            // Create a streaming texture for the vignette
-            _vignetteTexture = SDL.SDL_CreateTexture(
-                _renderer,
-                SDL.SDL_PIXELFORMAT_ARGB8888,
-                (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
-                width,
-                height
-            );
-            
-            if (_vignetteTexture == IntPtr.Zero)
-                return;
-            
-            SDL.SDL_SetTextureBlendMode(_vignetteTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-            
-            // Generate vignette pattern
-            uint[] vignetteBuffer = new uint[width * height];
-            float centerX = width / 2.0f;
-            float centerY = height / 2.0f;
-            float maxDist = (float)Math.Sqrt(centerX * centerX + centerY * centerY);
-            
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    float dx = x - centerX;
-                    float dy = y - centerY;
-                    float dist = (float)Math.Sqrt(dx * dx + dy * dy);
-                    float normalizedDist = dist / maxDist;
-                    
-                    // Vignette darkening: stronger at edges (quadratic falloff)
-                    float vignette = normalizedDist * normalizedDist * 0.6f;
-                    byte alpha = (byte)(Math.Min(vignette * 255, 180));
-                    
-                    // ARGB format: black with varying alpha
-                    vignetteBuffer[y * width + x] = ((uint)alpha << 24) | 0x000000;
-                }
-            }
-            
-            // Upload to texture
-            unsafe
-            {
-                fixed (uint* pixels = vignetteBuffer)
-                {
-                    SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = width, h = height };
-                    SDL.SDL_UpdateTexture(_vignetteTexture, ref fullRect, (IntPtr)pixels, width * sizeof(uint));
-                }
-            }
-        }
-
-        private void CreateScreenMaskTexture()
-        {
-            int width = ScreenWidth * _screenMultiplier;
-            int height = ScreenHeight * _screenMultiplier;
-            
-            // Destroy old mask texture if it exists
-            if (_screenMaskTexture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(_screenMaskTexture);
-            
-            // Create a streaming texture for the screen mask
-            _screenMaskTexture = SDL.SDL_CreateTexture(
-                _renderer,
-                SDL.SDL_PIXELFORMAT_ARGB8888,
-                (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
-                width,
-                height
-            );
-            
-            if (_screenMaskTexture == IntPtr.Zero)
-                return;
-            
-            SDL.SDL_SetTextureBlendMode(_screenMaskTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-            
-            // Generate screen mask with rounded corners and edge darkening
-            uint[] maskBuffer = new uint[width * height];
-            float centerX = width / 2.0f;
-            float centerY = height / 2.0f;
-            
-            // Corner radius in pixels
-            float cornerRadius = Math.Min(width, height) * CornerRadius;
-            
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    // Normalize coordinates to -1 to 1 range
-                    float nx = (x - centerX) / centerX;
-                    float ny = (y - centerY) / centerY;
-                    
-                    // Check rounded corners using superellipse formula
-                    // This creates the characteristic rounded rectangle of CRT screens
-                    float cornerX = Math.Max(0, Math.Abs(x - centerX) - (centerX - cornerRadius));
-                    float cornerY = Math.Max(0, Math.Abs(y - centerY) - (centerY - cornerRadius));
-                    float cornerDist = (float)Math.Sqrt(cornerX * cornerX + cornerY * cornerY);
-                    
-                    // Calculate barrel distortion factor
-                    float r2 = nx * nx + ny * ny;
-                    float barrelFactor = 1.0f + BarrelDistortion * r2;
-                    
-                    // Edge darkening based on distance from center (simulates CRT curvature)
-                    float edgeDark = r2 * 0.3f;
-                    
-                    byte alpha;
-                    if (cornerDist > cornerRadius)
-                    {
-                        // Outside rounded corner - fully black/opaque
-                        alpha = 255;
-                    }
-                    else if (cornerDist > cornerRadius - 2)
-                    {
-                        // Anti-aliased edge of rounded corner
-                        float t = (cornerDist - (cornerRadius - 2)) / 2.0f;
-                        alpha = (byte)(t * 255);
-                    }
-                    else
-                    {
-                        // Inside screen area - apply subtle edge darkening from barrel effect
-                        alpha = (byte)(Math.Min(edgeDark * 60, 40));
-                    }
-                    
-                    // ARGB format: black with varying alpha
-                    maskBuffer[y * width + x] = ((uint)alpha << 24) | 0x000000;
-                }
-            }
-            
-            // Upload to texture
-            unsafe
-            {
-                fixed (uint* pixels = maskBuffer)
-                {
-                    SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = width, h = height };
-                    SDL.SDL_UpdateTexture(_screenMaskTexture, ref fullRect, (IntPtr)pixels, width * sizeof(uint));
-                }
-            }
-        }
-
         private void ResizeDisplay(int newMultiplier)
         {
             if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == _screenMultiplier)
@@ -285,7 +121,6 @@ namespace SpaceInvaders
                 
                 // Recreate pixel buffer
                 _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
-                _persistenceBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
                 
                 // Recreate texture
                 _texture = SDL.SDL_CreateTexture(
@@ -304,9 +139,8 @@ namespace SpaceInvaders
                 // Enable alpha blending on the game texture so background shows through
                 SDL.SDL_SetTextureBlendMode(_texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
                 
-                // Recreate vignette and screen mask textures for new size
-                CreateVignetteTexture();
-                CreateScreenMaskTexture();
+                // Resize CRT effects textures for new size
+                _crtEffects?.Resize(ScreenWidth, ScreenHeight, _screenMultiplier);
                 
                 // Resize window and re-center
                 SDL.SDL_SetWindowSize(_window, ScreenWidth * _screenMultiplier, ScreenHeight * _screenMultiplier);
@@ -436,14 +270,11 @@ namespace SpaceInvaders
             AudioPlaybackEngine.Instance.Dispose();
             
             // Cleanup SDL
+            _crtEffects?.Dispose();
             if (_texture != IntPtr.Zero)
                 SDL.SDL_DestroyTexture(_texture);
             if (_backgroundTexture != IntPtr.Zero)
                 SDL.SDL_DestroyTexture(_backgroundTexture);
-            if (_vignetteTexture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(_vignetteTexture);
-            if (_screenMaskTexture != IntPtr.Zero)
-                SDL.SDL_DestroyTexture(_screenMaskTexture);
             if (_renderer != IntPtr.Zero)
                 SDL.SDL_DestroyRenderer(_renderer);
             if (_window != IntPtr.Zero)
@@ -551,19 +382,9 @@ namespace SpaceInvaders
                         
                         SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
                         
-                        if (_crtEffectEnabled)
+                        if (_crtEffects != null && _crtEffects.Enabled)
                         {
-                            SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-                            SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 35);
-                            for (int x = 0; x < scaledWidth; x += _screenMultiplier)
-                                SDL.SDL_RenderDrawLine(_renderer, x, 0, x, scaledHeight);
-                            SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 25);
-                            for (int y = 0; y < scaledHeight; y += _screenMultiplier)
-                                SDL.SDL_RenderDrawLine(_renderer, 0, y, scaledWidth, y);
-                            if (_vignetteTexture != IntPtr.Zero)
-                                SDL.SDL_RenderCopy(_renderer, _vignetteTexture, IntPtr.Zero, IntPtr.Zero);
-                            if (_screenMaskTexture != IntPtr.Zero)
-                                SDL.SDL_RenderCopy(_renderer, _screenMaskTexture, IntPtr.Zero, IntPtr.Zero);
+                            _crtEffects.RenderOverlays(_renderer, scaledWidth, scaledHeight, _screenMultiplier);
                         }
                         
                         if (_overlayMessage != null)
@@ -579,37 +400,9 @@ namespace SpaceInvaders
                     try
                     {
                     // Apply phosphor persistence (fade previous frame) or clear
-                    if (_crtEffectEnabled)
+                    if (_crtEffects != null && _crtEffects.Enabled)
                     {
-                        // Decay previous frame's pixels (phosphor fade effect)
-                        for (int i = 0; i < _persistenceBuffer.Length; i++)
-                        {
-                            uint pixel = _persistenceBuffer[i];
-                            if (pixel != 0)
-                            {
-                                // Extract ARGB components
-                                byte a = (byte)((pixel >> 24) & 0xFF);
-                                byte r = (byte)((pixel >> 16) & 0xFF);
-                                byte g = (byte)((pixel >> 8) & 0xFF);
-                                byte b = (byte)(pixel & 0xFF);
-                                
-                                // Apply decay to each component
-                                a = (byte)(a * PhosphorDecay);
-                                r = (byte)(r * PhosphorDecay);
-                                g = (byte)(g * PhosphorDecay);
-                                b = (byte)(b * PhosphorDecay);
-                                
-                                // Threshold to prevent infinite dim pixels
-                                if (a < 8) a = 0;
-                                if (r < 8) r = 0;
-                                if (g < 8) g = 0;
-                                if (b < 8) b = 0;
-                                
-                                _persistenceBuffer[i] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
-                            }
-                            // Start with decayed persistence buffer
-                            _pixelBuffer[i] = _persistenceBuffer[i];
-                        }
+                        _crtEffects.ApplyPersistence(_pixelBuffer);
                     }
                     else
                     {
@@ -651,15 +444,15 @@ namespace SpaceInvaders
                     }
                     
                     // Store current frame for next frame's persistence effect
-                    if (_crtEffectEnabled)
+                    if (_crtEffects != null && _crtEffects.Enabled)
                     {
-                        Array.Copy(_pixelBuffer, _persistenceBuffer, _pixelBuffer.Length);
+                        _crtEffects.StorePersistence(_pixelBuffer);
                     }
                     
                     // Apply CRT post-processing effects
-                    if (_crtEffectEnabled)
+                    if (_crtEffects != null && _crtEffects.Enabled)
                     {
-                        ApplyCrtPostProcessing(scaledWidth, scaledHeight);
+                        _crtEffects.ApplyPostProcessing(_pixelBuffer, scaledWidth, scaledHeight);
                     }
 
                     // Update texture with pixel buffer
@@ -685,36 +478,9 @@ namespace SpaceInvaders
                     // Render game texture on top (with alpha blending - transparent pixels show background)
                     SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
                     
-                    if (_crtEffectEnabled)
+                    if (_crtEffects != null && _crtEffects.Enabled)
                     {
-                        // Draw CRT scanlines for authentic appearance
-                        SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-                        
-                        // Vertical scanlines (due to rotated CRT)
-                        SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 35);
-                        for (int x = 0; x < scaledWidth; x += _screenMultiplier)
-                        {
-                            SDL.SDL_RenderDrawLine(_renderer, x, 0, x, scaledHeight);
-                        }
-                        
-                        // Horizontal scanlines (typical CRT raster lines)
-                        SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 25);
-                        for (int y = 0; y < scaledHeight; y += _screenMultiplier)
-                        {
-                            SDL.SDL_RenderDrawLine(_renderer, 0, y, scaledWidth, y);
-                        }
-                        
-                        // Apply vignette overlay for edge darkening
-                        if (_vignetteTexture != IntPtr.Zero)
-                        {
-                            SDL.SDL_RenderCopy(_renderer, _vignetteTexture, IntPtr.Zero, IntPtr.Zero);
-                        }
-                        
-                        // Apply CRT screen mask with rounded corners
-                        if (_screenMaskTexture != IntPtr.Zero)
-                        {
-                            SDL.SDL_RenderCopy(_renderer, _screenMaskTexture, IntPtr.Zero, IntPtr.Zero);
-                        }
+                        _crtEffects.RenderOverlays(_renderer, scaledWidth, scaledHeight, _screenMultiplier);
                     }
                     
                     // Draw overlay message if active
@@ -748,165 +514,6 @@ namespace SpaceInvaders
                     catch { }
                 }
             }
-        }
-
-        /// <summary>
-        /// Applies CRT post-processing effects: bloom, horizontal blur, flicker, jitter, and warmup.
-        /// </summary>
-        private void ApplyCrtPostProcessing(int width, int height)
-        {
-            // First pass: Apply bloom/glow effect
-            ApplyBloomEffect(width, height);
-            
-            // Calculate warmup brightness (0.0 to 1.0 over WarmupDuration seconds)
-            float elapsedSeconds = (float)(DateTime.Now - _startupTime).TotalSeconds;
-            float warmupFactor = Math.Min(1.0f, elapsedSeconds / WarmupDuration);
-            // Ease-in curve for more realistic tube warmup
-            warmupFactor = warmupFactor * warmupFactor;
-            
-            // Calculate flicker (random brightness variation)
-            float flickerFactor = 1.0f - (float)(_crtRandom.NextDouble() * FlickerIntensity);
-            
-            // Combined brightness factor
-            float brightnessFactor = warmupFactor * flickerFactor;
-            
-            // Determine if this frame has horizontal jitter
-            int jitterOffset = 0;
-            if (_crtRandom.NextDouble() < JitterProbability)
-            {
-                jitterOffset = _crtRandom.Next(-JitterMaxPixels, JitterMaxPixels + 1) * _screenMultiplier;
-            }
-            
-            // Apply effects to pixel buffer
-            uint[] tempBuffer = new uint[_pixelBuffer.Length];
-            
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    int srcIndex = y * width + x;
-                    
-                    // Apply jitter offset
-                    int jitteredX = x + jitterOffset;
-                    if (jitteredX < 0 || jitteredX >= width)
-                    {
-                        tempBuffer[srcIndex] = 0; // Black for out-of-bounds
-                        continue;
-                    }
-                    
-                    int jitteredIndex = y * width + jitteredX;
-                    uint pixel = _pixelBuffer[jitteredIndex];
-                    
-                    if (pixel == 0)
-                    {
-                        tempBuffer[srcIndex] = 0;
-                        continue;
-                    }
-                    
-                    // Extract ARGB components
-                    byte a = (byte)((pixel >> 24) & 0xFF);
-                    byte r = (byte)((pixel >> 16) & 0xFF);
-                    byte g = (byte)((pixel >> 8) & 0xFF);
-                    byte b = (byte)(pixel & 0xFF);
-                    
-                    // Apply horizontal blur (blend with neighbors)
-                    if (BlurStrength > 0 && x > 0 && x < width - 1)
-                    {
-                        uint leftPixel = _pixelBuffer[jitteredIndex - 1];
-                        uint rightPixel = _pixelBuffer[jitteredIndex + 1];
-                        
-                        if (leftPixel != 0 || rightPixel != 0)
-                        {
-                            byte lr = (byte)((leftPixel >> 16) & 0xFF);
-                            byte lg = (byte)((leftPixel >> 8) & 0xFF);
-                            byte lb = (byte)(leftPixel & 0xFF);
-                            byte rr = (byte)((rightPixel >> 16) & 0xFF);
-                            byte rg = (byte)((rightPixel >> 8) & 0xFF);
-                            byte rb = (byte)(rightPixel & 0xFF);
-                            
-                            float centerWeight = 1.0f - BlurStrength;
-                            float sideWeight = BlurStrength * 0.5f;
-                            
-                            r = (byte)(r * centerWeight + (lr + rr) * sideWeight);
-                            g = (byte)(g * centerWeight + (lg + rg) * sideWeight);
-                            b = (byte)(b * centerWeight + (lb + rb) * sideWeight);
-                        }
-                    }
-                    
-                    // Apply brightness (warmup + flicker) - but preserve bloom pixels (lower alpha)
-                    if (a > 100) // Full brightness pixels get warmup/flicker
-                    {
-                        r = (byte)(r * brightnessFactor);
-                        g = (byte)(g * brightnessFactor);
-                        b = (byte)(b * brightnessFactor);
-                        a = (byte)(a * brightnessFactor);
-                    }
-                    // Bloom pixels (lower alpha) pass through without modification
-                    
-                    tempBuffer[srcIndex] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
-                }
-            }
-            
-            // Copy back to pixel buffer
-            Array.Copy(tempBuffer, _pixelBuffer, _pixelBuffer.Length);
-        }
-
-        /// <summary>
-        /// Applies bloom/glow effect - bright pixels bleed light into surrounding dark areas.
-        /// Uses a fast single-pass approach for performance.
-        /// </summary>
-        private void ApplyBloomEffect(int width, int height)
-        {
-            // Simple and fast: just add glow to immediate neighbors of lit pixels
-            uint[] bloomBuffer = new uint[_pixelBuffer.Length];
-            Array.Copy(_pixelBuffer, bloomBuffer, _pixelBuffer.Length);
-            
-            int step = _screenMultiplier; // Check every Nth pixel for speed
-            
-            for (int y = step; y < height - step; y += step)
-            {
-                for (int x = step; x < width - step; x += step)
-                {
-                    int index = y * width + x;
-                    uint pixel = _pixelBuffer[index];
-                    
-                    if (pixel == 0) continue;
-                    
-                    // Extract RGB and check brightness
-                    byte r = (byte)((pixel >> 16) & 0xFF);
-                    byte g = (byte)((pixel >> 8) & 0xFF);
-                    byte b = (byte)(pixel & 0xFF);
-                    byte a = (byte)((pixel >> 24) & 0xFF);
-                    
-                    // Use max channel for brightness (catches saturated colors like green)
-                    float brightness = Math.Max(r, Math.Max(g, b)) / 255.0f;
-                    if (brightness < 0.5f) continue; // Only bright pixels glow
-                    
-                    // Colored glow matching the source pixel
-                    byte glowR = r;
-                    byte glowG = g;
-                    byte glowB = b;
-                    byte glowA = 120;
-                    
-                    int[] offsets = { -width, width, -1, 1, -width-1, -width+1, width-1, width+1 }; // All 8 neighbors
-                    foreach (int offset in offsets)
-                    {
-                        int neighborIndex = index + offset;
-                        if (neighborIndex < 0 || neighborIndex >= _pixelBuffer.Length) continue;
-                        
-                        uint neighbor = bloomBuffer[neighborIndex];
-                        
-                        // Only add glow to dark/empty pixels
-                        if (neighbor == 0)
-                        {
-                            bloomBuffer[neighborIndex] = ((uint)glowA << 24) | ((uint)glowR << 16) | ((uint)glowG << 8) | glowB;
-                        }
-                    }
-                }
-            }
-            
-            // Copy bloom result back to pixel buffer
-            Array.Copy(bloomBuffer, _pixelBuffer, _pixelBuffer.Length);
         }
 
         private uint GetColorValue(int screenPos_X, int screenPos_Y)
@@ -958,14 +565,17 @@ namespace SpaceInvaders
             
             if (key == SDL.SDL_Keycode.SDLK_r)
             {
-                _crtEffectEnabled = !_crtEffectEnabled;
-                if (!_crtEffectEnabled)
+                if (_crtEffects != null)
                 {
-                    // Clear persistence buffer when disabling
-                    Array.Clear(_persistenceBuffer, 0, _persistenceBuffer.Length);
+                    _crtEffects.Enabled = !_crtEffects.Enabled;
+                    if (!_crtEffects.Enabled)
+                    {
+                        // Clear persistence buffer when disabling
+                        _crtEffects.ClearPersistence();
+                    }
+                    _overlayMessage = _crtEffects.Enabled ? "crt:on" : "crt:off";
+                    _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
                 }
-                _overlayMessage = _crtEffectEnabled ? "crt:on" : "crt:off";
-                _overlayMessageEndTime = DateTime.Now.AddSeconds(2);
                 return;
             }
             
