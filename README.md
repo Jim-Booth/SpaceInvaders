@@ -83,7 +83,7 @@ The emulator simulates the DIP switches found on the original arcade PCB. Settin
 | **Bonus Life** | 1500 or 1000 points | 1500 | F2 |
 | **Coin Info** | Show or hide in demo | Show | F3 |
 
-Changes take effect immediately and are saved automatically.
+Changes are saved automatically. **Note:** The lives setting only displays correctly during active gameplay. During demo/attraction mode, the change may not be visible until a new game is started.
 
 ## ROM Files
 
