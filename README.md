@@ -61,11 +61,12 @@ dotnet run
 
 | Key | Action |
 |-----|--------|
-| **[** / **]** | Decrease / Increase scale (2x-4x) |
-| **B** | Toggle background texture |
-| **R** | Toggle CRT effects (including phosphor persistence) |
-| **S** | Toggle sound on/off |
-| **F** | Toggle FPS counter |
+| **[** / **]** | Decrease / Increase scale (default: x2) |
+| **B** | Toggle background texture (default: on) |
+| **R** | Toggle CRT effects (default: on) |
+| **S** | Toggle sound on/off (default: on) |
+| **F** | Toggle FPS counter (default: off) |
+| **F4** | Toggle low FPS warning (default: on) |
 
 ### DIP Switch Controls
 
@@ -74,7 +75,6 @@ dotnet run
 | **F1** | Cycle lives (3 → 4 → 5 → 6) |
 | **F2** | Toggle bonus life threshold (1500 / 1000) |
 | **F3** | Toggle coin info display |
-| **F4** | Toggle low FPS warning (default: on) |
 
 ## DIP Switches
 
