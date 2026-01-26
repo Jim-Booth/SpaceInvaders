@@ -82,6 +82,9 @@ namespace SpaceInvaders.CABINET
             _overlay = new OverlayRenderer(_renderer);
         }
 
+        /// <summary>
+        /// Loads the cabinet background texture from Cabinet.bmp if available.
+        /// </summary>
         private void LoadBackgroundTexture()
         {
             string backgroundPath = Path.Combine(AppPath, "Cabinet.bmp");
@@ -107,6 +110,9 @@ namespace SpaceInvaders.CABINET
             }
         }
 
+        /// <summary>
+        /// Requests a display resize to a new scale multiplier (1-4x).
+        /// </summary>
         private void RequestResize(int newMultiplier)
         {
             if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == _screenMultiplier)
@@ -116,6 +122,9 @@ namespace SpaceInvaders.CABINET
             _resizePending = true;
         }
 
+        /// <summary>
+        /// Processes any pending resize request on the main thread.
+        /// </summary>
         private void ProcessPendingResize()
         {
             if (!_resizePending)
@@ -186,6 +195,9 @@ namespace SpaceInvaders.CABINET
             }
         }
 
+        /// <summary>
+        /// Initializes SDL2 video subsystem, window, renderer, and texture.
+        /// </summary>
         private void InitializeSDL()
         {
             if (SDL.SDL_Init(SDL.SDL_INIT_VIDEO) < 0)
@@ -245,6 +257,9 @@ namespace SpaceInvaders.CABINET
             _inputPorts[2] = (byte)((_inputPorts[2] & 0x74) | dipBits);
         }
 
+        /// <summary>
+        /// Starts the emulator and runs the main event loop until exit.
+        /// </summary>
         public void Start()
         {
             ExecuteSpaceInvaders();
@@ -326,6 +341,9 @@ namespace SpaceInvaders.CABINET
             Console.WriteLine("Cleanup complete. Exiting.");
         }
 
+        /// <summary>
+        /// Initializes and starts the Intel 8080 CPU and all background threads.
+        /// </summary>
         private void ExecuteSpaceInvaders()
         {
             _cpu = new Intel8080(new Memory(0x10000));
@@ -381,6 +399,9 @@ namespace SpaceInvaders.CABINET
             _soundThread.Start();
         }
 
+        /// <summary>
+        /// Background thread that synchronizes input port data with the CPU.
+        /// </summary>
         private async void PortThread()
         {
             while (!_portLoop.IsCancellationRequested)
@@ -400,6 +421,9 @@ namespace SpaceInvaders.CABINET
             }
         }
 
+        /// <summary>
+        /// Background thread that prepares frame data from video memory.
+        /// </summary>
         public void DisplayThread()
         {
             while (!_displayLoop.IsCancellationRequested)
@@ -562,6 +586,9 @@ namespace SpaceInvaders.CABINET
             SDL.SDL_RenderPresent(_renderer);
         }
 
+        /// <summary>
+        /// Returns the ARGB color value for a screen position based on color zones.
+        /// </summary>
         private uint GetColorValue(int screenPos_X, int screenPos_Y)
         {
             // Convert SDL_Color to ARGB8888 format (0xAARRGGBB)
@@ -581,6 +608,9 @@ namespace SpaceInvaders.CABINET
             return ((uint)color.a << 24) | ((uint)color.r << 16) | ((uint)color.g << 8) | color.b;
         }
 
+        /// <summary>
+        /// Handles keyboard key press events for game controls and settings.
+        /// </summary>
         private void HandleKeyDown(SDL.SDL_Keycode key)
         {
             if (key == SDL.SDL_Keycode.SDLK_ESCAPE)
@@ -683,6 +713,9 @@ namespace SpaceInvaders.CABINET
             KeyPressed(keyValue);
         }
 
+        /// <summary>
+        /// Handles keyboard key release events for game controls.
+        /// </summary>
         private void HandleKeyUp(SDL.SDL_Keycode key)
         {
             uint keyValue = GetKeyValue(key);
@@ -691,6 +724,9 @@ namespace SpaceInvaders.CABINET
             KeyLifted(keyValue);
         }
 
+        /// <summary>
+        /// Maps SDL keycodes to internal key values for game input.
+        /// </summary>
         private static uint GetKeyValue(SDL.SDL_Keycode key)
         {
             return key switch
@@ -711,6 +747,9 @@ namespace SpaceInvaders.CABINET
             };
         }
 
+        /// <summary>
+        /// Background thread that monitors output ports and triggers sound playback.
+        /// </summary>
         private void SoundThread()
         {
             byte prevPort3 = new();
@@ -752,6 +791,9 @@ namespace SpaceInvaders.CABINET
             }
        }
 
+        /// <summary>
+        /// Sets the appropriate input port bits when a key is pressed.
+        /// </summary>
         private void KeyPressed(uint key)
         {
             switch (key)
@@ -806,6 +848,9 @@ namespace SpaceInvaders.CABINET
             }
         }
 
+        /// <summary>
+        /// Clears the appropriate input port bits when a key is released.
+        /// </summary>
         private void KeyLifted(uint key)
         {
             switch (key)

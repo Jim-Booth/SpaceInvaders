@@ -166,6 +166,15 @@ The emulator includes authentic CRT monitor effects to recreate the arcade exper
 
 All CRT effects can be toggled with the **R** key.
 
+### Performance Considerations
+
+The CRT effects are computationally intensive, especially at higher scale multipliers. The emulator monitors FPS and will display a **low FPS warning** at the top of the screen if performance drops below 50 FPS while CRT effects are enabled.
+
+If you experience low frame rates:
+- Press **R** to disable CRT effects for improved performance
+- Reduce the display scale with **[** key (lower multiplier = better performance)
+- The warning message: `low fps! press r to disable crt` will disappear automatically when FPS recovers or CRT effects are disabled
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
