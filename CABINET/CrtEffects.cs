@@ -39,6 +39,7 @@ namespace SpaceInvaders.CABINET
         // SDL textures for overlay effects
         private IntPtr _vignetteTexture;
         private IntPtr _screenMaskTexture;
+        private IntPtr _scanlinesTexture;
         private IntPtr _renderer;
         
         private int _width;
@@ -58,6 +59,7 @@ namespace SpaceInvaders.CABINET
             
             CreateVignetteTexture();
             CreateScreenMaskTexture();
+            CreateScanlinesTexture();
         }
 
         /// <summary>
@@ -72,6 +74,7 @@ namespace SpaceInvaders.CABINET
             
             CreateVignetteTexture();
             CreateScreenMaskTexture();
+            CreateScanlinesTexture();
         }
 
         /// <summary>
@@ -229,20 +232,10 @@ namespace SpaceInvaders.CABINET
         {
             if (!Enabled) return;
             
-            SDL.SDL_SetRenderDrawBlendMode(renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-            
-            // Vertical scanlines
-            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 35);
-            for (int x = 0; x < width; x += screenMultiplier)
+            // Render pre-generated scanlines texture (replaces ~479 individual draw calls)
+            if (_scanlinesTexture != IntPtr.Zero)
             {
-                SDL.SDL_RenderDrawLine(renderer, x, 0, x, height);
-            }
-            
-            // Horizontal scanlines
-            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 25);
-            for (int y = 0; y < height; y += screenMultiplier)
-            {
-                SDL.SDL_RenderDrawLine(renderer, 0, y, width, y);
+                SDL.SDL_RenderCopy(renderer, _scanlinesTexture, IntPtr.Zero, IntPtr.Zero);
             }
             
             // Vignette overlay
@@ -420,6 +413,72 @@ namespace SpaceInvaders.CABINET
             }
         }
 
+        /// <summary>
+        /// Creates the pre-rendered scanlines texture.
+        /// This replaces ~479 individual SDL_RenderDrawLine calls with a single texture render.
+        /// </summary>
+        private void CreateScanlinesTexture()
+        {
+            if (_scanlinesTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(_scanlinesTexture);
+            
+            _scanlinesTexture = SDL.SDL_CreateTexture(
+                _renderer,
+                SDL.SDL_PIXELFORMAT_ARGB8888,
+                (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
+                _width,
+                _height
+            );
+            
+            if (_scanlinesTexture == IntPtr.Zero)
+                return;
+            
+            SDL.SDL_SetTextureBlendMode(_scanlinesTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            
+            uint[] scanlinesBuffer = new uint[_width * _height];
+            
+            // Vertical scanlines (alpha = 35)
+            uint verticalLineColor = (35u << 24) | 0x000000;
+            // Horizontal scanlines (alpha = 25)
+            uint horizontalLineColor = (25u << 24) | 0x000000;
+            // Intersection points get combined alpha
+            uint intersectionColor = (55u << 24) | 0x000000;
+            
+            for (int y = 0; y < _height; y++)
+            {
+                bool isHorizontalLine = (y % _screenMultiplier) == 0;
+                
+                for (int x = 0; x < _width; x++)
+                {
+                    bool isVerticalLine = (x % _screenMultiplier) == 0;
+                    
+                    if (isVerticalLine && isHorizontalLine)
+                    {
+                        // Intersection of both scanlines
+                        scanlinesBuffer[y * _width + x] = intersectionColor;
+                    }
+                    else if (isVerticalLine)
+                    {
+                        scanlinesBuffer[y * _width + x] = verticalLineColor;
+                    }
+                    else if (isHorizontalLine)
+                    {
+                        scanlinesBuffer[y * _width + x] = horizontalLineColor;
+                    }
+                    // else: pixel remains 0 (fully transparent)
+                }
+            }
+            
+            unsafe
+            {
+                fixed (uint* pixels = scanlinesBuffer)
+                {
+                    SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = _width, h = _height };
+                    SDL.SDL_UpdateTexture(_scanlinesTexture, ref fullRect, (IntPtr)pixels, _width * sizeof(uint));
+                }
+            }
+        }
+
         public void Dispose()
         {
             if (_vignetteTexture != IntPtr.Zero)
@@ -431,6 +490,11 @@ namespace SpaceInvaders.CABINET
             {
                 SDL.SDL_DestroyTexture(_screenMaskTexture);
                 _screenMaskTexture = IntPtr.Zero;
+            }
+            if (_scanlinesTexture != IntPtr.Zero)
+            {
+                SDL.SDL_DestroyTexture(_scanlinesTexture);
+                _scanlinesTexture = IntPtr.Zero;
             }
         }
     }

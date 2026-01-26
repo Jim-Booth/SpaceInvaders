@@ -31,8 +31,12 @@ namespace SpaceInvaders.CABINET
         private readonly GameSettings _settings;
         private readonly int ScreenWidth = 223;
         private readonly int ScreenHeight = 256;
-        private int _screenMultiplier = 2;
+        private volatile int _screenMultiplier = 2;
         private readonly object _resizeLock = new();
+        private volatile bool _resizePending = false;
+        private volatile int _pendingMultiplier = 2;
+        private volatile bool _frameReady = false;
+        private uint[]? _renderBuffer;
         
         // CRT effects handler
         private CrtEffects? _crtEffects;
@@ -71,6 +75,7 @@ namespace SpaceInvaders.CABINET
             _settings = GameSettings.Load();
             ApplyDipSwitches();
             _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
+            _renderBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
             InitializeSDL();
             LoadBackgroundTexture();
             _crtEffects = new CrtEffects(_renderer, ScreenWidth, ScreenHeight, _screenMultiplier);
@@ -102,23 +107,55 @@ namespace SpaceInvaders.CABINET
             }
         }
 
-        private void ResizeDisplay(int newMultiplier)
+        private void RequestResize(int newMultiplier)
         {
             if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == _screenMultiplier)
                 return;
 
-            lock (_resizeLock)
+            _pendingMultiplier = newMultiplier;
+            _resizePending = true;
+        }
+
+        private void ProcessPendingResize()
+        {
+            if (!_resizePending)
+                return;
+
+            int newMultiplier = _pendingMultiplier;
+
+            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == _screenMultiplier)
             {
+                _resizePending = false;
+                return;
+            }
+
+            // Wait briefly for display thread to notice the pending flag and yield
+            Thread.Sleep(50);
+
+            // Use TryEnter with timeout to avoid deadlock
+            bool lockTaken = false;
+            try
+            {
+                Monitor.TryEnter(_resizeLock, 100, ref lockTaken);
+                if (!lockTaken)
+                {
+                    // Could not acquire lock, will retry next frame
+                    return;
+                }
+
                 _screenMultiplier = newMultiplier;
+                _resizePending = false;
                 
                 // Destroy old texture
                 if (_texture != IntPtr.Zero)
                     SDL.SDL_DestroyTexture(_texture);
                 
-                // Recreate pixel buffer
+                // Recreate pixel buffer at new scaled size
                 _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
+                _renderBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
+                _frameReady = false;
                 
-                // Recreate texture
+                // Recreate texture at new scaled size
                 _texture = SDL.SDL_CreateTexture(
                     _renderer,
                     SDL.SDL_PIXELFORMAT_ARGB8888,
@@ -141,6 +178,11 @@ namespace SpaceInvaders.CABINET
                 // Resize window and re-center
                 SDL.SDL_SetWindowSize(_window, ScreenWidth * _screenMultiplier, ScreenHeight * _screenMultiplier);
                 SDL.SDL_SetWindowPosition(_window, SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED);
+            }
+            finally
+            {
+                if (lockTaken)
+                    Monitor.Exit(_resizeLock);
             }
         }
 
@@ -174,7 +216,7 @@ namespace SpaceInvaders.CABINET
                 throw new Exception($"Renderer could not be created! SDL_Error: {SDL.SDL_GetError()}");
             }
 
-            // Create streaming texture for pixel-perfect rendering
+            // Create streaming texture at scaled resolution for pixel-perfect rendering
             _texture = SDL.SDL_CreateTexture(
                 _renderer,
                 SDL.SDL_PIXELFORMAT_ARGB8888,
@@ -214,6 +256,9 @@ namespace SpaceInvaders.CABINET
             SDL.SDL_Event sdlEvent;
             while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {
+                // Process any pending resize on the main thread (required for SDL on Windows)
+                ProcessPendingResize();
+                
                 // Process SDL events
                 while (SDL.SDL_PollEvent(out sdlEvent) != 0)
                 {
@@ -233,6 +278,9 @@ namespace SpaceInvaders.CABINET
                         HandleKeyUp(sdlEvent.key.keysym.sym);
                     }
                 }
+                
+                // Render frame on main thread (required for SDL on Windows)
+                RenderFrame();
                 
                 try
                 {
@@ -356,77 +404,66 @@ namespace SpaceInvaders.CABINET
         {
             while (!_displayLoop.IsCancellationRequested)
             {
-                // Use timeout so we can still render overlay when paused
+                // Use timeout so we can still prepare frames when paused
                 bool signaled = _cpu!.DisplayTiming.WaitOne(16);
                 
-                // If paused and not signaled, still render the pause overlay
-                if (_gamePaused && !signaled)
+                // Skip if resize is pending
+                if (_resizePending)
                 {
-                    lock (_resizeLock)
-                    {
-                        int scaledWidth = ScreenWidth * _screenMultiplier;
-                        int scaledHeight = ScreenHeight * _screenMultiplier;
-                        
-                        // Just re-render current state with overlay
-                        SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
-                        SDL.SDL_RenderClear(_renderer);
-                        
-                        if (_backgroundEnabled && _backgroundTexture != IntPtr.Zero)
-                            SDL.SDL_RenderCopy(_renderer, _backgroundTexture, IntPtr.Zero, IntPtr.Zero);
-                        
-                        SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
-                        
-                        if (_crtEffects != null && _crtEffects.Enabled)
-                        {
-                            _crtEffects.RenderOverlays(_renderer, scaledWidth, scaledHeight, _screenMultiplier);
-                        }
-                        
-                        _overlay?.DrawMessage(scaledWidth, scaledHeight, _screenMultiplier);
-                        
-                        SDL.SDL_RenderPresent(_renderer);
-                    }
+                    Thread.Sleep(1);
                     continue;
                 }
                 
+                // If paused, just mark last frame as ready for re-render
+                if (_gamePaused && !signaled)
+                {
+                    _frameReady = true;
+                    continue;
+                }
+                
+                // Prepare the frame data (no SDL calls here)
                 lock (_resizeLock)
                 {
+                    if (_resizePending) continue;
+                    
                     try
                     {
-                    // Apply phosphor persistence (fade previous frame) or clear
-                    if (_crtEffects != null && _crtEffects.Enabled)
-                    {
-                        _crtEffects.ApplyPersistence(_pixelBuffer);
-                    }
-                    else
-                    {
-                        // Clear pixel buffer (fully transparent - alpha = 0)
-                        Array.Clear(_pixelBuffer, 0, _pixelBuffer.Length);
-                    }
-
-                    int ptr = 0;
-                    int scaledWidth = ScreenWidth * _screenMultiplier;
-                    int scaledHeight = ScreenHeight * _screenMultiplier;
-                    for (int x = 0; x < scaledWidth; x += _screenMultiplier)
-                    {
-                        for (int y = scaledHeight; y > 0; y -= 8 * _screenMultiplier)
+                        // Apply phosphor persistence (fade previous frame) or clear
+                        if (_crtEffects != null && _crtEffects.Enabled)
                         {
-                            byte value = _cpu.Video[ptr++];
-                            for (int b = 0; b < 8; b++)
+                            _crtEffects.ApplyPersistence(_pixelBuffer);
+                        }
+                        else
+                        {
+                            // Clear pixel buffer (fully transparent - alpha = 0)
+                            Array.Clear(_pixelBuffer, 0, _pixelBuffer.Length);
+                        }
+
+                        int ptr = 0;
+                        int scaledWidth = ScreenWidth * _screenMultiplier;
+                        int scaledHeight = ScreenHeight * _screenMultiplier;
+                        for (int x = 0; x < scaledWidth; x += _screenMultiplier)
+                        {
+                            for (int y = scaledHeight; y > 0; y -= 8 * _screenMultiplier)
                             {
-                                if ((value & (1 << b)) != 0)
+                                byte value = _cpu.Video[ptr++];
+                                for (int b = 0; b < 8; b++)
                                 {
-                                    int pixelY = y - (b * _screenMultiplier);
-                                    uint colorValue = GetColorValue(x, y);
-                                    int bufferIndex = pixelY * scaledWidth + x;
-                                    if (bufferIndex >= 0 && bufferIndex < _pixelBuffer.Length)
+                                    if ((value & (1 << b)) != 0)
                                     {
-                                        for (int dy = 0; dy < _screenMultiplier; dy++)
+                                        int pixelY = y - (b * _screenMultiplier);
+                                        uint colorValue = GetColorValue(x, y);
+                                        int bufferIndex = pixelY * scaledWidth + x;
+                                        if (bufferIndex >= 0 && bufferIndex < _pixelBuffer.Length)
                                         {
-                                            if (pixelY + dy < scaledHeight)
+                                            for (int dy = 0; dy < _screenMultiplier; dy++)
                                             {
-                                                for (int dx = 0; dx < _screenMultiplier; dx++)
+                                                if (pixelY + dy < scaledHeight)
                                                 {
-                                                    _pixelBuffer[bufferIndex + (dy * scaledWidth) + dx] = colorValue;
+                                                    for (int dx = 0; dx < _screenMultiplier; dx++)
+                                                    {
+                                                        _pixelBuffer[bufferIndex + (dy * scaledWidth) + dx] = colorValue;
+                                                    }
                                                 }
                                             }
                                         }
@@ -434,60 +471,95 @@ namespace SpaceInvaders.CABINET
                                 }
                             }
                         }
-                    }
-                    
-                    // Store current frame for next frame's persistence effect
-                    if (_crtEffects != null && _crtEffects.Enabled)
-                    {
-                        _crtEffects.StorePersistence(_pixelBuffer);
-                    }
-                    
-                    // Apply CRT post-processing effects
-                    if (_crtEffects != null && _crtEffects.Enabled)
-                    {
-                        _crtEffects.ApplyPostProcessing(_pixelBuffer, scaledWidth, scaledHeight);
-                    }
-
-                    // Update texture with pixel buffer
-                    unsafe
-                    {
-                        fixed (uint* pixels = _pixelBuffer)
+                        
+                        // Store current frame for next frame's persistence effect
+                        if (_crtEffects != null && _crtEffects.Enabled)
                         {
-                            SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = scaledWidth, h = scaledHeight };
-                            SDL.SDL_UpdateTexture(_texture, ref fullRect, (IntPtr)pixels, scaledWidth * sizeof(uint));
+                            _crtEffects.StorePersistence(_pixelBuffer);
                         }
-                    }
+                        
+                        // Apply CRT post-processing effects
+                        if (_crtEffects != null && _crtEffects.Enabled)
+                        {
+                            _crtEffects.ApplyPostProcessing(_pixelBuffer, scaledWidth, scaledHeight);
+                        }
 
-                    // Clear renderer to black first
-                    SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
-                    SDL.SDL_RenderClear(_renderer);
-                    
-                    // Render background texture if enabled
-                    if (_backgroundEnabled && _backgroundTexture != IntPtr.Zero)
-                    {
-                        SDL.SDL_RenderCopy(_renderer, _backgroundTexture, IntPtr.Zero, IntPtr.Zero);
-                    }
-                    
-                    // Render game texture on top (with alpha blending - transparent pixels show background)
-                    SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
-                    
-                    if (_crtEffects != null && _crtEffects.Enabled)
-                    {
-                        _crtEffects.RenderOverlays(_renderer, scaledWidth, scaledHeight, _screenMultiplier);
-                    }
-                    
-                    // Draw overlay message if active
-                    _overlay?.DrawMessage(scaledWidth, scaledHeight, _screenMultiplier);
-                    
-                    // Update and draw FPS counter
-                    _overlay?.UpdateFps();
-                    _overlay?.DrawFpsCounter(scaledWidth, _screenMultiplier);
-                    
-                    SDL.SDL_RenderPresent(_renderer);
+                        // Copy to render buffer for main thread to use
+                        if (_renderBuffer != null && _renderBuffer.Length == _pixelBuffer.Length)
+                        {
+                            Array.Copy(_pixelBuffer, _renderBuffer, _pixelBuffer.Length);
+                            _frameReady = true;
+                        }
                     }
                     catch { }
                 }
             }
+        }
+
+        /// <summary>
+        /// Renders the prepared frame to the screen. Must be called from the main thread.
+        /// </summary>
+        private void RenderFrame()
+        {
+            if (_resizePending || _renderBuffer == null)
+                return;
+            
+            int scaledWidth = ScreenWidth * _screenMultiplier;
+            int scaledHeight = ScreenHeight * _screenMultiplier;
+            
+            // Update texture with pixel buffer
+            if (_frameReady)
+            {
+                lock (_resizeLock)
+                {
+                    if (_renderBuffer.Length == scaledWidth * scaledHeight)
+                    {
+                        unsafe
+                        {
+                            fixed (uint* pixels = _renderBuffer)
+                            {
+                                SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = scaledWidth, h = scaledHeight };
+                                SDL.SDL_UpdateTexture(_texture, ref fullRect, (IntPtr)pixels, scaledWidth * sizeof(uint));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Clear renderer to black first
+            SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
+            SDL.SDL_RenderClear(_renderer);
+            
+            // Render background texture if enabled
+            if (_backgroundEnabled && _backgroundTexture != IntPtr.Zero)
+            {
+                SDL.SDL_RenderCopy(_renderer, _backgroundTexture, IntPtr.Zero, IntPtr.Zero);
+            }
+            
+            // Render game texture on top (with alpha blending - transparent pixels show background)
+            SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
+            
+            if (_crtEffects != null && _crtEffects.Enabled)
+            {
+                _crtEffects.RenderOverlays(_renderer, scaledWidth, scaledHeight, _screenMultiplier);
+            }
+            
+            // Draw overlay message if active
+            _overlay?.DrawMessage(scaledWidth, scaledHeight, _screenMultiplier);
+            
+            // Update and draw FPS counter, check for low FPS warning
+            _overlay?.UpdateFps();
+            if (_overlay != null && _crtEffects != null && _crtEffects.Enabled)
+            {
+                // Draw warning continuously while FPS is below 50 and CRT effects are enabled
+                if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 50)
+                {
+                    _overlay.DrawLowFpsWarning(scaledWidth, scaledHeight, _screenMultiplier);
+                }
+            }
+            _overlay?.DrawFpsCounter(scaledWidth, _screenMultiplier);
+            
+            SDL.SDL_RenderPresent(_renderer);
         }
 
         private uint GetColorValue(int screenPos_X, int screenPos_Y)
@@ -521,13 +593,13 @@ namespace SpaceInvaders.CABINET
             
             if (key == SDL.SDL_Keycode.SDLK_LEFTBRACKET)
             {
-                ResizeDisplay(_screenMultiplier - 1);
+                RequestResize(_screenMultiplier - 1);
                 return;
             }
             
             if (key == SDL.SDL_Keycode.SDLK_RIGHTBRACKET)
             {
-                ResizeDisplay(_screenMultiplier + 1);
+                RequestResize(_screenMultiplier + 1);
                 return;
             }
             

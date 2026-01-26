@@ -45,6 +45,11 @@ namespace SpaceInvaders.CABINET
         }
 
         /// <summary>
+        /// Gets the current measured FPS.
+        /// </summary>
+        public double CurrentFps => _currentFps;
+
+        /// <summary>
         /// Gets the current overlay message, or null if none.
         /// </summary>
         public string? Message => _message;
@@ -177,6 +182,45 @@ namespace SpaceInvaders.CABINET
             {
                 int charX = startX + i * (charWidth + charSpacing);
                 DrawChar(fpsText[i], charX, startY, screenMultiplier);
+            }
+        }
+
+        /// <summary>
+        /// Draws a low FPS warning message at the top of the screen.
+        /// Displays continuously while FPS is low.
+        /// </summary>
+        public void DrawLowFpsWarning(int screenWidth, int screenHeight, int screenMultiplier)
+        {
+            string warningText = "low fps! press r to disable crt";
+            
+            // Character dimensions (scaled)
+            int charWidth = 5 * screenMultiplier;
+            int charHeight = 7 * screenMultiplier;
+            int charSpacing = 1 * screenMultiplier;
+            int totalWidth = warningText.Length * (charWidth + charSpacing) - charSpacing;
+            
+            // Position at top center
+            int startX = (screenWidth - totalWidth) / 2;
+            int startY = 20 * screenMultiplier;
+            
+            // Draw semi-transparent red background box
+            SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+            SDL.SDL_SetRenderDrawColor(_renderer, 80, 0, 0, 200);
+            SDL.SDL_Rect bgRect = new SDL.SDL_Rect
+            {
+                x = startX - 8 * screenMultiplier,
+                y = startY - 4 * screenMultiplier,
+                w = totalWidth + 16 * screenMultiplier,
+                h = charHeight + 8 * screenMultiplier
+            };
+            SDL.SDL_RenderFillRect(_renderer, ref bgRect);
+            
+            // Draw warning text in bright red/orange
+            SDL.SDL_SetRenderDrawColor(_renderer, 0xFF, 0x66, 0x00, 0xFF);
+            for (int i = 0; i < warningText.Length; i++)
+            {
+                int charX = startX + i * (charWidth + charSpacing);
+                DrawChar(warningText[i], charX, startY, screenMultiplier);
             }
         }
 
