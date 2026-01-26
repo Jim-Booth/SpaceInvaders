@@ -154,12 +154,11 @@ The emulator includes authentic CRT monitor effects to recreate the arcade exper
 
 | Effect | Description |
 |--------|-------------|
-| **Bloom/Glow** | Bright pixels bleed light into surrounding dark areas with Gaussian falloff |
+| **Bloom/Glow** | GPU-accelerated additive blending creates light bloom around bright pixels |
 | **Scanlines** | Horizontal and vertical lines simulating CRT raster |
 | **Vignette** | Edge darkening with quadratic falloff from center |
 | **Rounded Corners** | Barrel distortion mask simulating curved CRT glass |
 | **Phosphor Persistence** | 75% decay rate creating ghosting trails on moving sprites |
-| **Horizontal Blur** | 30% blend with adjacent pixels simulating electron beam spread |
 | **Screen Flicker** | 2% random brightness variation per frame |
 | **Horizontal Jitter** | Rare random horizontal displacement (signal instability) |
 | **Power-On Warmup** | 2-second gradual brightness increase on startup |
@@ -168,7 +167,7 @@ All CRT effects can be toggled with the **R** key.
 
 ### Performance Considerations
 
-The CRT effects are computationally intensive, especially at higher scale multipliers. The emulator monitors FPS and will display a **low FPS warning** at the top of the screen if performance drops below 50 FPS while CRT effects are enabled.
+The CRT effects use GPU-accelerated rendering where possible (bloom uses SDL's additive texture blending). However, some effects like phosphor persistence still require CPU processing. The emulator monitors FPS and will display a **low FPS warning** at the top of the screen if performance drops below 40 FPS while CRT effects are enabled.
 
 If you experience low frame rates:
 - Press **R** to disable CRT effects for improved performance

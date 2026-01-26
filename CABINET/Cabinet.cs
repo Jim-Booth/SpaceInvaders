@@ -575,8 +575,8 @@ namespace SpaceInvaders.CABINET
             _overlay?.UpdateFps();
             if (_overlay != null && _crtEffects != null && _crtEffects.Enabled)
             {
-                // Draw warning continuously while FPS is below 50 and CRT effects are enabled
-                if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 50)
+                // Draw warning continuously while FPS is below 40 and CRT effects are enabled
+                if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 40)
                 {
                     _overlay.DrawLowFpsWarning(scaledWidth, scaledHeight, _screenMultiplier);
                 }

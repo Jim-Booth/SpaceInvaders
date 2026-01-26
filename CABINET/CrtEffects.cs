@@ -30,8 +30,7 @@ namespace SpaceInvaders.CABINET
         private readonly float JitterProbability = 0.002f;
         private readonly int JitterMaxPixels = 1;
         private readonly float WarmupDuration = 2.0f;
-        private readonly float BlurStrength = 0.3f;
-        private readonly float BloomAlpha = 120;
+        private readonly byte BloomAlpha = 40;
         
         private readonly Random _random = new();
         private readonly DateTime _startupTime;
@@ -40,7 +39,11 @@ namespace SpaceInvaders.CABINET
         private IntPtr _vignetteTexture;
         private IntPtr _screenMaskTexture;
         private IntPtr _scanlinesTexture;
+        private IntPtr _bloomTexture;
         private IntPtr _renderer;
+        
+        // Bloom buffer for GPU-based bloom effect
+        private uint[] _bloomBuffer = [];
         
         private int _width;
         private int _height;
@@ -56,10 +59,12 @@ namespace SpaceInvaders.CABINET
             _height = screenHeight * screenMultiplier;
             _startupTime = DateTime.Now;
             _persistenceBuffer = new uint[_width * _height];
+            _bloomBuffer = new uint[_width * _height];
             
             CreateVignetteTexture();
             CreateScreenMaskTexture();
             CreateScanlinesTexture();
+            CreateBloomTexture();
         }
 
         /// <summary>
@@ -71,10 +76,12 @@ namespace SpaceInvaders.CABINET
             _width = screenWidth * screenMultiplier;
             _height = screenHeight * screenMultiplier;
             _persistenceBuffer = new uint[_width * _height];
+            _bloomBuffer = new uint[_width * _height];
             
             CreateVignetteTexture();
             CreateScreenMaskTexture();
             CreateScanlinesTexture();
+            CreateBloomTexture();
         }
 
         /// <summary>
@@ -136,13 +143,15 @@ namespace SpaceInvaders.CABINET
         }
 
         /// <summary>
-        /// Applies post-processing effects: bloom, blur, flicker, jitter, and warmup.
+        /// Applies post-processing effects: flicker, jitter, warmup, and prepares bloom for GPU.
+        /// Bloom and blur are now GPU-accelerated via SDL texture blending.
         /// </summary>
         public void ApplyPostProcessing(uint[] pixelBuffer, int width, int height)
         {
             if (!Enabled) return;
             
-            ApplyBloomEffect(pixelBuffer, width, height);
+            // Prepare bloom data for GPU rendering (extract bright pixels)
+            PrepareBloomData(pixelBuffer, width, height);
             
             float elapsedSeconds = (float)(DateTime.Now - _startupTime).TotalSeconds;
             float warmupFactor = Math.Min(1.0f, elapsedSeconds / WarmupDuration);
@@ -157,82 +166,148 @@ namespace SpaceInvaders.CABINET
                 jitterOffset = _random.Next(-JitterMaxPixels, JitterMaxPixels + 1) * _screenMultiplier;
             }
             
-            uint[] tempBuffer = new uint[pixelBuffer.Length];
-            
-            for (int y = 0; y < height; y++)
+            // Only apply jitter and brightness if needed (skip expensive per-pixel loop otherwise)
+            if (jitterOffset != 0 || brightnessFactor < 0.99f)
             {
-                for (int x = 0; x < width; x++)
+                uint[] tempBuffer = new uint[pixelBuffer.Length];
+                
+                for (int y = 0; y < height; y++)
                 {
-                    int srcIndex = y * width + x;
-                    
-                    int jitteredX = x + jitterOffset;
-                    if (jitteredX < 0 || jitteredX >= width)
+                    for (int x = 0; x < width; x++)
                     {
-                        tempBuffer[srcIndex] = 0;
-                        continue;
+                        int srcIndex = y * width + x;
+                        
+                        int jitteredX = x + jitterOffset;
+                        if (jitteredX < 0 || jitteredX >= width)
+                        {
+                            tempBuffer[srcIndex] = 0;
+                            continue;
+                        }
+                        
+                        int jitteredIndex = y * width + jitteredX;
+                        uint pixel = pixelBuffer[jitteredIndex];
+                        
+                        if (pixel == 0)
+                        {
+                            tempBuffer[srcIndex] = 0;
+                            continue;
+                        }
+                        
+                        byte a = (byte)((pixel >> 24) & 0xFF);
+                        byte r = (byte)((pixel >> 16) & 0xFF);
+                        byte g = (byte)((pixel >> 8) & 0xFF);
+                        byte b = (byte)(pixel & 0xFF);
+                        
+                        // Apply brightness factor (warmup + flicker)
+                        if (a > 100)
+                        {
+                            r = (byte)(r * brightnessFactor);
+                            g = (byte)(g * brightnessFactor);
+                            b = (byte)(b * brightnessFactor);
+                            a = (byte)(a * brightnessFactor);
+                        }
+                        
+                        tempBuffer[srcIndex] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
                     }
+                }
+                
+                Array.Copy(tempBuffer, pixelBuffer, pixelBuffer.Length);
+            }
+        }
+        
+        /// <summary>
+        /// Prepares bloom data by extracting bright pixels for GPU-accelerated rendering.
+        /// Fills complete pixel blocks to avoid stippling artifacts.
+        /// </summary>
+        private void PrepareBloomData(uint[] pixelBuffer, int width, int height)
+        {
+            Array.Clear(_bloomBuffer, 0, _bloomBuffer.Length);
+            
+            int step = _screenMultiplier;
+            
+            // Sample at pixel boundaries but fill complete blocks
+            for (int y = 0; y < height; y += step)
+            {
+                for (int x = 0; x < width; x += step)
+                {
+                    int index = y * width + x;
+                    if (index >= pixelBuffer.Length) continue;
                     
-                    int jitteredIndex = y * width + jitteredX;
-                    uint pixel = pixelBuffer[jitteredIndex];
+                    uint pixel = pixelBuffer[index];
+                    if (pixel == 0) continue;
                     
-                    if (pixel == 0)
-                    {
-                        tempBuffer[srcIndex] = 0;
-                        continue;
-                    }
-                    
-                    byte a = (byte)((pixel >> 24) & 0xFF);
                     byte r = (byte)((pixel >> 16) & 0xFF);
                     byte g = (byte)((pixel >> 8) & 0xFF);
                     byte b = (byte)(pixel & 0xFF);
                     
-                    if (BlurStrength > 0 && x > 0 && x < width - 1)
+                    // Only bloom bright pixels
+                    float brightness = Math.Max(r, Math.Max(g, b)) / 255.0f;
+                    if (brightness < 0.5f) continue;
+                    
+                    uint bloomColor = ((uint)BloomAlpha << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
+                    
+                    // Fill the entire pixel block to avoid stippling
+                    for (int dy = 0; dy < step && (y + dy) < height; dy++)
                     {
-                        uint leftPixel = pixelBuffer[jitteredIndex - 1];
-                        uint rightPixel = pixelBuffer[jitteredIndex + 1];
-                        
-                        if (leftPixel != 0 || rightPixel != 0)
+                        for (int dx = 0; dx < step && (x + dx) < width; dx++)
                         {
-                            byte lr = (byte)((leftPixel >> 16) & 0xFF);
-                            byte lg = (byte)((leftPixel >> 8) & 0xFF);
-                            byte lb = (byte)(leftPixel & 0xFF);
-                            byte rr = (byte)((rightPixel >> 16) & 0xFF);
-                            byte rg = (byte)((rightPixel >> 8) & 0xFF);
-                            byte rb = (byte)(rightPixel & 0xFF);
-                            
-                            float centerWeight = 1.0f - BlurStrength;
-                            float sideWeight = BlurStrength * 0.5f;
-                            
-                            r = (byte)(r * centerWeight + (lr + rr) * sideWeight);
-                            g = (byte)(g * centerWeight + (lg + rg) * sideWeight);
-                            b = (byte)(b * centerWeight + (lb + rb) * sideWeight);
+                            int fillIndex = (y + dy) * width + (x + dx);
+                            if (fillIndex < _bloomBuffer.Length)
+                            {
+                                _bloomBuffer[fillIndex] = bloomColor;
+                            }
                         }
                     }
-                    
-                    if (a > 100)
-                    {
-                        r = (byte)(r * brightnessFactor);
-                        g = (byte)(g * brightnessFactor);
-                        b = (byte)(b * brightnessFactor);
-                        a = (byte)(a * brightnessFactor);
-                    }
-                    
-                    tempBuffer[srcIndex] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
                 }
             }
+        }
+        
+        /// <summary>
+        /// Updates the bloom texture with current frame's bloom data.
+        /// Call before RenderOverlays.
+        /// </summary>
+        public void UpdateBloomTexture()
+        {
+            if (!Enabled || _bloomTexture == IntPtr.Zero) return;
             
-            Array.Copy(tempBuffer, pixelBuffer, pixelBuffer.Length);
+            unsafe
+            {
+                fixed (uint* pixels = _bloomBuffer)
+                {
+                    SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = _width, h = _height };
+                    SDL.SDL_UpdateTexture(_bloomTexture, ref fullRect, (IntPtr)pixels, _width * sizeof(uint));
+                }
+            }
         }
 
         /// <summary>
-        /// Renders scanlines and overlay textures (vignette, screen mask).
+        /// Renders GPU-accelerated bloom and overlay textures (scanlines, vignette, screen mask).
         /// Call after rendering the game texture.
         /// </summary>
         public void RenderOverlays(IntPtr renderer, int width, int height, int screenMultiplier)
         {
             if (!Enabled) return;
             
-            // Render pre-generated scanlines texture (replaces ~479 individual draw calls)
+            // Render GPU-accelerated bloom with additive blending (glow effect)
+            if (_bloomTexture != IntPtr.Zero)
+            {
+                // Update bloom texture with current frame data
+                UpdateBloomTexture();
+                
+                // Render bloom with minimal offset passes for a subtle glow
+                int blurRadius = Math.Max(1, screenMultiplier / 2);
+                
+                // Center pass
+                SDL.SDL_RenderCopy(renderer, _bloomTexture, IntPtr.Zero, IntPtr.Zero);
+                
+                // Horizontal offset passes only (subtle horizontal glow)
+                SDL.SDL_Rect leftRect = new SDL.SDL_Rect { x = -blurRadius, y = 0, w = width, h = height };
+                SDL.SDL_Rect rightRect = new SDL.SDL_Rect { x = blurRadius, y = 0, w = width, h = height };
+                SDL.SDL_RenderCopy(renderer, _bloomTexture, IntPtr.Zero, ref leftRect);
+                SDL.SDL_RenderCopy(renderer, _bloomTexture, IntPtr.Zero, ref rightRect);
+            }
+            
+            // Render pre-generated scanlines texture
             if (_scanlinesTexture != IntPtr.Zero)
             {
                 SDL.SDL_RenderCopy(renderer, _scanlinesTexture, IntPtr.Zero, IntPtr.Zero);
@@ -251,51 +326,28 @@ namespace SpaceInvaders.CABINET
             }
         }
 
-        private void ApplyBloomEffect(uint[] pixelBuffer, int width, int height)
+        /// <summary>
+        /// Creates the bloom texture for GPU-accelerated glow effects.
+        /// Uses additive blending to create light bloom around bright pixels.
+        /// </summary>
+        private void CreateBloomTexture()
         {
-            uint[] bloomBuffer = new uint[pixelBuffer.Length];
-            Array.Copy(pixelBuffer, bloomBuffer, pixelBuffer.Length);
+            if (_bloomTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(_bloomTexture);
             
-            int step = _screenMultiplier;
+            _bloomTexture = SDL.SDL_CreateTexture(
+                _renderer,
+                SDL.SDL_PIXELFORMAT_ARGB8888,
+                (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
+                _width,
+                _height
+            );
             
-            for (int y = step; y < height - step; y += step)
-            {
-                for (int x = step; x < width - step; x += step)
-                {
-                    int index = y * width + x;
-                    uint pixel = pixelBuffer[index];
-                    
-                    if (pixel == 0) continue;
-                    
-                    byte r = (byte)((pixel >> 16) & 0xFF);
-                    byte g = (byte)((pixel >> 8) & 0xFF);
-                    byte b = (byte)(pixel & 0xFF);
-                    
-                    float brightness = Math.Max(r, Math.Max(g, b)) / 255.0f;
-                    if (brightness < 0.5f) continue;
-                    
-                    byte glowR = r;
-                    byte glowG = g;
-                    byte glowB = b;
-                    byte glowA = (byte)BloomAlpha;
-                    
-                    int[] offsets = { -width, width, -1, 1, -width-1, -width+1, width-1, width+1 };
-                    foreach (int offset in offsets)
-                    {
-                        int neighborIndex = index + offset;
-                        if (neighborIndex < 0 || neighborIndex >= pixelBuffer.Length) continue;
-                        
-                        uint neighbor = bloomBuffer[neighborIndex];
-                        
-                        if (neighbor == 0)
-                        {
-                            bloomBuffer[neighborIndex] = ((uint)glowA << 24) | ((uint)glowR << 16) | ((uint)glowG << 8) | glowB;
-                        }
-                    }
-                }
-            }
+            if (_bloomTexture == IntPtr.Zero)
+                return;
             
-            Array.Copy(bloomBuffer, pixelBuffer, pixelBuffer.Length);
+            // Use additive blending for bloom glow effect
+            SDL.SDL_SetTextureBlendMode(_bloomTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_ADD);
         }
 
         private void CreateVignetteTexture()
@@ -495,6 +547,11 @@ namespace SpaceInvaders.CABINET
             {
                 SDL.SDL_DestroyTexture(_scanlinesTexture);
                 _scanlinesTexture = IntPtr.Zero;
+            }
+            if (_bloomTexture != IntPtr.Zero)
+            {
+                SDL.SDL_DestroyTexture(_bloomTexture);
+                _bloomTexture = IntPtr.Zero;
             }
         }
     }
