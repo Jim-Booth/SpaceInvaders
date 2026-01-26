@@ -74,6 +74,7 @@ dotnet run
 | **F1** | Cycle lives (3 → 4 → 5 → 6) |
 | **F2** | Toggle bonus life threshold (1500 / 1000) |
 | **F3** | Toggle coin info display |
+| **F4** | Toggle low FPS warning (default: on) |
 
 ## DIP Switches
 
@@ -172,6 +173,7 @@ The CRT effects use GPU-accelerated rendering where possible (bloom uses SDL's a
 If you experience low frame rates:
 - Press **R** to disable CRT effects for improved performance
 - Reduce the display scale with **[** key (lower multiplier = better performance)
+- Press **F4** to disable the low FPS warning if you prefer not to see it
 - The warning message: `low fps! press r to disable crt` will disappear automatically when FPS recovers or CRT effects are disabled
 
 ## License

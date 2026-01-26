@@ -22,6 +22,7 @@ namespace SpaceInvaders.CABINET
         
         // FPS counter state
         private bool _fpsDisplayEnabled = false;
+        private bool _fpsWarningEnabled = true;
         private int _frameCount = 0;
         private DateTime _lastFpsUpdate = DateTime.Now;
         private double _currentFps = 0.0;
@@ -42,6 +43,15 @@ namespace SpaceInvaders.CABINET
         {
             get => _fpsDisplayEnabled;
             set => _fpsDisplayEnabled = value;
+        }
+
+        /// <summary>
+        /// Gets or sets whether the low FPS warning is enabled (default: true).
+        /// </summary>
+        public bool FpsWarningEnabled
+        {
+            get => _fpsWarningEnabled;
+            set => _fpsWarningEnabled = value;
         }
 
         /// <summary>

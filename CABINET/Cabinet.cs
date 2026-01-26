@@ -267,7 +267,7 @@ namespace SpaceInvaders.CABINET
             // Monitor for SDL events
             Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, P=Pause, ESC=Exit");
             Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effects, S=Sound, F=FPS");
-            Console.WriteLine("DIP:      F1=Lives, F2=Bonus Life, F3=Coin Info");
+            Console.WriteLine("DIP:      F1=Lives, F2=Bonus Life, F3=Coin Info, F4=FPS Warning");
             SDL.SDL_Event sdlEvent;
             while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -573,7 +573,7 @@ namespace SpaceInvaders.CABINET
             
             // Update and draw FPS counter, check for low FPS warning
             _overlay?.UpdateFps();
-            if (_overlay != null && _crtEffects != null && _crtEffects.Enabled)
+            if (_overlay != null && _overlay.FpsWarningEnabled && _crtEffects != null && _crtEffects.Enabled)
             {
                 // Draw warning continuously while FPS is below 40 and CRT effects are enabled
                 if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 40)
@@ -704,6 +704,16 @@ namespace SpaceInvaders.CABINET
                 ApplyDipSwitches();
                 _settings.Save();
                 _overlay?.ShowMessage(_settings.CoinInfoHidden ? "coininfo:off" : "coininfo:on", TimeSpan.FromSeconds(2));
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_F4)
+            {
+                if (_overlay != null)
+                {
+                    _overlay.FpsWarningEnabled = !_overlay.FpsWarningEnabled;
+                    _overlay.ShowMessage(_overlay.FpsWarningEnabled ? "fpswarning:on" : "fpswarning:off", TimeSpan.FromSeconds(2));
+                }
                 return;
             }
             
