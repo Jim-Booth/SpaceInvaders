@@ -95,7 +95,6 @@ namespace SpaceInvaders.CABINET
                     var settings = JsonSerializer.Deserialize<GameSettings>(json);
                     if (settings != null)
                     {
-                        Console.WriteLine($"Loaded settings: Lives={settings.ActualLives}, Bonus={settings.BonusLifeThreshold}, CoinInfo={!settings.CoinInfoHidden}, HighScore={settings.HighScore}");
                         return settings;
                     }
                 }
@@ -105,7 +104,6 @@ namespace SpaceInvaders.CABINET
                 Console.WriteLine($"Error loading settings: {ex.Message}");
             }
             
-            Console.WriteLine("Using default settings");
             return new GameSettings();
         }
         
