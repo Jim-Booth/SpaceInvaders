@@ -326,12 +326,13 @@ namespace SpaceInvaders.CABINET
             _soundThread?.Join(1000);
 
             // Play CRT power-off animation (only if CRT effects are enabled)
-            if (_crtEffects != null && _crtEffects.Enabled)
+            if (_crtEffects?.Enabled == true)
             {
                 int scaledWidth = ScreenWidth * _screenMultiplier;
                 int scaledHeight = ScreenHeight * _screenMultiplier;
                 _crtEffects.RenderPowerOffAnimation(_renderer, _texture, scaledWidth, scaledHeight);
             }
+
             AudioPlaybackEngine.Instance.Dispose();
             
             // Cleanup SDL
