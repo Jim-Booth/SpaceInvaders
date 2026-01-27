@@ -33,10 +33,10 @@ namespace SpaceInvaders.CABINET
         private readonly byte BloomAlpha = 40;
         
         // CRT power-on bounce settings (simulates magnetic coil energizing)
-        private readonly float BounceOvershoot = 0.20f;      // Brightness overshoot (0.20 = 20% over)
+        private readonly float BounceOvershoot = 0.80f;      // Brightness overshoot (0.20 = 20% over)
         private readonly float BounceDamping = 3.0f;         // How quickly oscillation decays
         private readonly float BounceFrequency = 3.0f;       // Number of oscillations during settle
-        private readonly int BounceMaxPixels = 15;           // Maximum pixel offset during bounce
+        private readonly int BounceMaxPixels = 100;           // Maximum pixel offset during bounce
         private readonly float PositionBounceDamping = 5.0f; // How quickly position settles 
         private readonly float PositionBounceFrequency = 8.0f; // Position oscillation frequency 
         

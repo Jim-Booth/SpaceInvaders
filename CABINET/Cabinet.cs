@@ -31,7 +31,7 @@ namespace SpaceInvaders.CABINET
         private readonly GameSettings _settings;
         private readonly int ScreenWidth = 223;
         private readonly int ScreenHeight = 256;
-        private volatile int _screenMultiplier = 2;
+        private volatile int _screenMultiplier = 3;
         private readonly object _resizeLock = new();
         private volatile bool _resizePending = false;
         private volatile int _pendingMultiplier = 2;

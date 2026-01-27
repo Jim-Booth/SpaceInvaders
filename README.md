@@ -23,7 +23,7 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
 - **DIP switch emulation** - Configurable lives, bonus life threshold, and coin info display with persistent settings
 - **High score persistence** - High scores are saved to `settings.json` and restored on startup
 - **Background texture support** - Overlay game on custom cabinet artwork
-- **Scalable display** - 1x to 4x resolution scaling (Default is 2x)
+- **Scalable display** - 1x to 4x resolution scaling (Default is 3x)
 - **Cross-platform** - Runs on Windows, macOS, and Linux
 
 ## Prerequisites
@@ -62,7 +62,7 @@ dotnet run
 
 | Key | Action |
 |-----|--------|
-| **[** / **]** | Decrease / Increase scale (default: x2) |
+| **[** / **]** | Decrease / Increase scale (default: x3) |
 | **B** | Toggle background texture (default: on) |
 | **R** | Toggle CRT effects (default: on) |
 | **S** | Toggle sound on/off (default: on) |
@@ -143,7 +143,7 @@ SpaceInvaders/
 ## Technical Details
 
 - **CPU Clock**: 2 MHz emulated
-- **Display**: 224x256 rotated 90° (renders as 256x224)
+- **Display**: 223x256 rotated 90° (renders as 256x223)
 - **Refresh Rate**: 60 Hz with mid-screen and full-screen interrupts
 - **Color Overlay**: Simulates original arcade color gel overlay
   - Green: Player and shields area

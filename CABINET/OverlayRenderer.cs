@@ -98,7 +98,7 @@ namespace SpaceInvaders.CABINET
             _frameCount++;
             var now = DateTime.Now;
             var elapsed = (now - _lastFpsUpdate).TotalSeconds;
-            if (elapsed >= 0.5) // Update FPS every 0.5 seconds
+            if (elapsed >= 2) // Update FPS every 0.5 seconds
             {
                 _currentFps = _frameCount / elapsed;
                 _frameCount = 0;
