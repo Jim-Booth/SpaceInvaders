@@ -33,12 +33,18 @@ namespace SpaceInvaders.CABINET
         private readonly byte BloomAlpha = 40;
         
         // CRT power-on bounce settings (simulates magnetic coil energizing)
-        private readonly float BounceOvershoot = 0.80f;      // Brightness overshoot (0.20 = 20% over)
+        private readonly float BounceOvershoot = 0.80f;      // Brightness overshoot (0.80 = 80% over)
         private readonly float BounceDamping = 3.0f;         // How quickly oscillation decays
         private readonly float BounceFrequency = 3.0f;       // Number of oscillations during settle
         private readonly int BounceMaxPixels = 30;           // Maximum pixel offset during bounce
         private readonly float PositionBounceDamping = 5.0f; // How quickly position settles 
-        private readonly float PositionBounceFrequency = 8.0f; // Position oscillation frequency 
+        private readonly float PositionBounceFrequency = 8.0f; // Position oscillation frequency
+        
+        // CRT power-off animation settings (classic CRT shutdown effect)
+        private readonly float PowerOffHorizontalDuration = 0.15f; // Seconds to shrink width to vertical line
+        private readonly float PowerOffVerticalDuration = 0.20f;   // Seconds to shrink line to dot
+        private readonly float PowerOffDotDuration = 0.10f;        // Seconds for dot to fade out
+        private readonly float FadeToBlackDuration = 0.5f;         // Seconds to fade screen to black
         
         private readonly Random _random = new();
         private readonly DateTime _startupTime;
@@ -624,5 +630,98 @@ namespace SpaceInvaders.CABINET
                 _bloomTexture = IntPtr.Zero;
             }
         }
+        
+        /// <summary>
+        /// Renders the CRT power-off animation sequence.
+        /// Phase 1: Screen shrinks horizontally to a vertical line
+        /// Phase 2: Vertical line shrinks to a bright dot
+        /// Phase 3: Dot fades out
+        /// </summary>
+        /// <param name="renderer">SDL renderer</param>
+        /// <param name="texture">Game texture to animate</param>
+        /// <param name="width">Screen width</param>
+        /// <param name="height">Screen height</param>
+        public void RenderPowerOffAnimation(IntPtr renderer, IntPtr texture, int width, int height)
+        {
+            float totalDuration = PowerOffHorizontalDuration + PowerOffVerticalDuration + PowerOffDotDuration;
+            var startTime = DateTime.Now;
+            
+
+            while (true)
+            {
+                float elapsed = (float)(DateTime.Now - startTime).TotalSeconds;
+                if (elapsed >= totalDuration) break;
+                
+                // Clear to black
+                SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+                SDL.SDL_RenderClear(renderer);
+                
+                int centerX = width / 2;
+                int centerY = height / 2;
+                
+                if (elapsed < PowerOffHorizontalDuration)
+                {
+                    // Phase 1: Shrink width to a vertical line
+                    float t = elapsed / PowerOffHorizontalDuration;
+                    float easeT = t * t; // Ease-in (accelerate)
+                    int currentWidth = (int)(width * (1.0f - easeT));
+                    currentWidth = Math.Max(4, currentWidth); // Minimum 4 pixels wide
+                    
+                    SDL.SDL_Rect destRect = new SDL.SDL_Rect
+                    {
+                        x = centerX - currentWidth / 2,
+                        y = 0,
+                        w = currentWidth,
+                        h = height
+                    };
+                    SDL.SDL_RenderCopy(renderer, texture, IntPtr.Zero, ref destRect);
+                }
+                else if (elapsed < PowerOffHorizontalDuration + PowerOffVerticalDuration)
+                {
+                    // Phase 2: Shrink vertical line to a dot
+                    float t = (elapsed - PowerOffHorizontalDuration) / PowerOffVerticalDuration;
+                    float easeT = t * t; // Ease-in
+                    int currentHeight = (int)(height * (1.0f - easeT));
+                    currentHeight = Math.Max(4, currentHeight); // Minimum 4 pixels tall
+                    int lineWidth = 4;
+                    
+                    // Draw bright white line/dot
+                    SDL.SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+                    SDL.SDL_Rect lineRect = new SDL.SDL_Rect
+                    {
+                        x = centerX - lineWidth / 2,
+                        y = centerY - currentHeight / 2,
+                        w = lineWidth,
+                        h = currentHeight
+                    };
+                    SDL.SDL_RenderFillRect(renderer, ref lineRect);
+                }
+                else
+                {
+                    // Phase 3: Fade out the dot
+                    float t = (elapsed - PowerOffHorizontalDuration - PowerOffVerticalDuration) / PowerOffDotDuration;
+                    byte brightness = (byte)(255 * (1.0f - t));
+                    int dotSize = 4;
+                    
+                    SDL.SDL_SetRenderDrawColor(renderer, brightness, brightness, brightness, 255);
+                    SDL.SDL_Rect dotRect = new SDL.SDL_Rect
+                    {
+                        x = centerX - dotSize / 2,
+                        y = centerY - dotSize / 2,
+                        w = dotSize,
+                        h = dotSize
+                    };
+                    SDL.SDL_RenderFillRect(renderer, ref dotRect);
+                }
+                
+                SDL.SDL_RenderPresent(renderer);
+                Thread.Sleep(16); // ~60 FPS
+            }
+            
+            // Final black frame
+            SDL.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+            SDL.SDL_RenderClear(renderer);
+            SDL.SDL_RenderPresent(renderer);
+        }     
     }
 }

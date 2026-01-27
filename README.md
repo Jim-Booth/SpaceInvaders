@@ -17,8 +17,9 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
   - Horizontal blur (electron beam spread)
   - Screen flicker (subtle brightness variation)
   - Random horizontal jitter (signal instability)
-  - Power-on warmup (gradual brightness increase)
-  - Power-on bounce (CRT deflection coil settling)
+    - Power-on warmup (gradual brightness increase)
+    - Power-on bounce (CRT deflection coil settling)
+    - Power-off animation (classic CRT shutdown effect)
 - **Authentic audio** - Low-pass filtered sound effects simulating arcade cabinet speakers
 - **DIP switch emulation** - Configurable lives, bonus life threshold, and coin info display with persistent settings
 - **High score persistence** - High scores are saved to `settings.json` and restored on startup
@@ -165,6 +166,7 @@ The emulator includes authentic CRT monitor effects to recreate the arcade exper
 | **Horizontal Jitter** | Rare random horizontal displacement (signal instability) |
 | **Power-On Warmup** | 2-second gradual brightness increase on startup |
 | **Power-On Bounce** | Horizontal image bounce as CRT deflection coils energize |
+| **Power-Off Animation** | Screen shrinks to vertical line, then to dot, then fades |
 
 All CRT effects can be toggled with the **R** key.
 

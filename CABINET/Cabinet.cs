@@ -316,7 +316,7 @@ namespace SpaceInvaders.CABINET
                     _settings.HighScore = currentHighScore;
                     _settings.Save();
                 }
-            }
+            }          
             
             // Wait for threads to finish
             Console.WriteLine("Waiting for threads to terminate...");
@@ -324,6 +324,14 @@ namespace SpaceInvaders.CABINET
             _portThread?.Join(1000);
             _displayThread?.Join(1000);
             _soundThread?.Join(1000);
+
+            // Play CRT power-off animation (only if CRT effects are enabled)
+            if (_crtEffects != null && _crtEffects.Enabled)
+            {
+                int scaledWidth = ScreenWidth * _screenMultiplier;
+                int scaledHeight = ScreenHeight * _screenMultiplier;
+                _crtEffects.RenderPowerOffAnimation(_renderer, _texture, scaledWidth, scaledHeight);
+            }
             AudioPlaybackEngine.Instance.Dispose();
             
             // Cleanup SDL
