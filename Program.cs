@@ -12,4 +12,4 @@
 using SpaceInvaders.CABINET;
 
 Cabinet cabinet = new();
-cabinet.Start();
+cabinet.PowerOn();

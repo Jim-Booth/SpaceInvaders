@@ -260,7 +260,7 @@ namespace SpaceInvaders.CABINET
         /// <summary>
         /// Starts the emulator and runs the main event loop until exit.
         /// </summary>
-        public void Start()
+        public void PowerOn()
         {
             ExecuteSpaceInvaders();
             
