@@ -560,8 +560,27 @@ namespace SpaceInvaders.CABINET
                 SDL.SDL_RenderCopy(_renderer, _backgroundTexture, IntPtr.Zero, IntPtr.Zero);
             }
             
+            // Get screen bounce offset for CRT power-on effect
+            // Original CRT is rotated 90°, so deflection coil bounce is horizontal
+            int bounceOffset = _crtEffects?.GetScreenBounceOffset(_screenMultiplier) ?? 0;
+            
             // Render game texture on top (with alpha blending - transparent pixels show background)
-            SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
+            // Apply horizontal bounce offset during CRT warmup/settle
+            if (bounceOffset != 0)
+            {
+                SDL.SDL_Rect destRect = new SDL.SDL_Rect 
+                { 
+                    x = bounceOffset, 
+                    y = 0, 
+                    w = scaledWidth, 
+                    h = scaledHeight 
+                };
+                SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, ref destRect);
+            }
+            else
+            {
+                SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
+            }
             
             if (_crtEffects != null && _crtEffects.Enabled)
             {
@@ -576,7 +595,8 @@ namespace SpaceInvaders.CABINET
             if (_overlay != null && _overlay.FpsWarningEnabled && _crtEffects != null && _crtEffects.Enabled)
             {
                 // Draw warning continuously while FPS is below 40 and CRT effects are enabled
-                if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 40)
+                // Suppress warning during CRT warmup period (brightness fade-in)
+                if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 40 && _crtEffects.WarmupComplete)
                 {
                     _overlay.DrawLowFpsWarning(scaledWidth, scaledHeight, _screenMultiplier);
                 }

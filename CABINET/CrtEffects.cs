@@ -29,11 +29,54 @@ namespace SpaceInvaders.CABINET
         private readonly float FlickerIntensity = 0.02f;
         private readonly float JitterProbability = 0.002f;
         private readonly int JitterMaxPixels = 1;
-        private readonly float WarmupDuration = 2.0f;
+        private readonly float WarmupDuration = 2.0f; // seconds
         private readonly byte BloomAlpha = 40;
+        
+        // CRT power-on bounce settings (simulates magnetic coil energizing)
+        private readonly float BounceOvershoot = 0.20f;      // Brightness overshoot (0.20 = 20% over)
+        private readonly float BounceDamping = 3.0f;         // How quickly oscillation decays
+        private readonly float BounceFrequency = 3.0f;       // Number of oscillations during settle
+        private readonly int BounceMaxPixels = 15;           // Maximum pixel offset during bounce
+        private readonly float PositionBounceDamping = 5.0f; // How quickly position settles 
+        private readonly float PositionBounceFrequency = 8.0f; // Position oscillation frequency 
         
         private readonly Random _random = new();
         private readonly DateTime _startupTime;
+        
+        /// <summary>
+        /// Gets whether the CRT warmup period has completed (brightness at full).
+        /// </summary>
+        public bool WarmupComplete => (DateTime.Now - _startupTime).TotalSeconds >= WarmupDuration + 1.0f;
+        
+        /// <summary>
+        /// Gets the current horizontal screen offset for the bounce effect.
+        /// Returns pixel offset to apply to the render destination rectangle.
+        /// The original Space Invaders CRT is rotated 90°, so vertical deflection
+        /// coil bounce appears as horizontal movement to the player.
+        /// </summary>
+        public int GetScreenBounceOffset(int screenMultiplier)
+        {
+            if (!Enabled) return 0;
+            
+            float elapsedSeconds = (float)(DateTime.Now - _startupTime).TotalSeconds;
+            float t = elapsedSeconds / WarmupDuration;
+            
+            if (t < 0.3f)
+            {
+                // First 30% of warmup: image starts offset and quickly moves to center
+                float settleProgress = t / 0.3f; // 0 to 1 over first 30%
+                float startOffset = 1.0f - (settleProgress * settleProgress * settleProgress); // Cubic ease-out
+                return (int)(BounceMaxPixels * startOffset * screenMultiplier * 0.5f);
+            }
+            
+            // After initial settle (30% onwards): damped oscillation bounce
+            float settleTime = (t - 0.3f) * WarmupDuration; // Time since settling completed
+            float decay = MathF.Exp(-PositionBounceDamping * settleTime);
+            float oscillation = MathF.Sin(settleTime * MathF.PI * PositionBounceFrequency * 2f);
+            float bounce = decay * oscillation;
+            
+            return (int)(BounceMaxPixels * bounce * screenMultiplier);
+        }
         
         // SDL textures for overlay effects
         private IntPtr _vignetteTexture;
@@ -154,8 +197,7 @@ namespace SpaceInvaders.CABINET
             PrepareBloomData(pixelBuffer, width, height);
             
             float elapsedSeconds = (float)(DateTime.Now - _startupTime).TotalSeconds;
-            float warmupFactor = Math.Min(1.0f, elapsedSeconds / WarmupDuration);
-            warmupFactor = warmupFactor * warmupFactor;
+            float warmupFactor = CalculateWarmupFactor(elapsedSeconds);
             
             float flickerFactor = 1.0f - (float)(_random.NextDouble() * FlickerIntensity);
             float brightnessFactor = warmupFactor * flickerFactor;
@@ -166,8 +208,8 @@ namespace SpaceInvaders.CABINET
                 jitterOffset = _random.Next(-JitterMaxPixels, JitterMaxPixels + 1) * _screenMultiplier;
             }
             
-            // Only apply jitter and brightness if needed (skip expensive per-pixel loop otherwise)
-            if (jitterOffset != 0 || brightnessFactor < 0.99f)
+            // Apply jitter and brightness adjustments (including bounce overshoot > 1.0)
+            if (jitterOffset != 0 || brightnessFactor < 0.99f || brightnessFactor > 1.01f)
             {
                 uint[] tempBuffer = new uint[pixelBuffer.Length];
                 
@@ -198,13 +240,13 @@ namespace SpaceInvaders.CABINET
                         byte g = (byte)((pixel >> 8) & 0xFF);
                         byte b = (byte)(pixel & 0xFF);
                         
-                        // Apply brightness factor (warmup + flicker)
+                        // Apply brightness factor (warmup + flicker + bounce)
                         if (a > 100)
                         {
-                            r = (byte)(r * brightnessFactor);
-                            g = (byte)(g * brightnessFactor);
-                            b = (byte)(b * brightnessFactor);
-                            a = (byte)(a * brightnessFactor);
+                            r = (byte)Math.Min(255, (int)(r * brightnessFactor));
+                            g = (byte)Math.Min(255, (int)(g * brightnessFactor));
+                            b = (byte)Math.Min(255, (int)(b * brightnessFactor));
+                            a = (byte)Math.Min(255, (int)(a * brightnessFactor));
                         }
                         
                         tempBuffer[srcIndex] = ((uint)a << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
@@ -213,6 +255,50 @@ namespace SpaceInvaders.CABINET
                 
                 Array.Copy(tempBuffer, pixelBuffer, pixelBuffer.Length);
             }
+        }
+        
+        /// <summary>
+        /// Calculates the warmup brightness factor with power-on bounce effect.
+        /// Simulates CRT magnetic coils energizing - overshoots then settles.
+        /// </summary>
+        private float CalculateWarmupFactor(float elapsedSeconds)
+        {
+            float t = elapsedSeconds / WarmupDuration;
+            
+            if (t >= 1.0f)
+            {
+                // Warmup complete - apply bounce effect
+                float settleTime = (elapsedSeconds - WarmupDuration);
+                
+                // Use absolute value of damped sine for distinct "pulses" that decay
+                // This creates: bright -> dim -> bright -> dim -> settle pattern
+                float settleDecay = MathF.Exp(-BounceDamping * settleTime);
+                float bounce = settleDecay * MathF.Sin(settleTime * MathF.PI * BounceFrequency * 2f);
+                
+                // Scale bounce effect: positive = brighter, negative = dimmer
+                float result = 1.0f + (BounceOvershoot * bounce);
+                return Math.Max(0.3f, result); // Don't let it go too dark
+            }
+            
+            // During warmup: ramp up and overshoot at the end
+            // Use smooth step that overshoots target
+            float warmupFactor;
+            if (t < 0.7f)
+            {
+                // First 70%: smooth ramp from 0 toward 1
+                float normalizedT = t / 0.7f;
+                warmupFactor = normalizedT * normalizedT * (3f - 2f * normalizedT); // Smooth step
+            }
+            else
+            {
+                // Last 30%: accelerate past 1.0 to create overshoot at t=1.0
+                float overshootT = (t - 0.7f) / 0.3f; // 0 to 1 over last 30%
+                float baseLevel = 1.0f; // We've reached full brightness
+                float overshoot = overshootT * BounceOvershoot; // Ramp up overshoot
+                warmupFactor = baseLevel + overshoot;
+            }
+            
+            return warmupFactor;
         }
         
         /// <summary>
@@ -467,7 +553,8 @@ namespace SpaceInvaders.CABINET
 
         /// <summary>
         /// Creates the pre-rendered scanlines texture.
-        /// This replaces ~479 individual SDL_RenderDrawLine calls with a single texture render.
+        /// Renders vertical scanlines only (horizontal scanlines removed as the original
+        /// CRT is rotated 90°, making vertical lines the authentic scanline direction).
         /// </summary>
         private void CreateScanlinesTexture()
         {
@@ -489,33 +576,16 @@ namespace SpaceInvaders.CABINET
             
             uint[] scanlinesBuffer = new uint[_width * _height];
             
-            // Vertical scanlines (alpha = 35)
+            // Vertical scanlines only (alpha = 35)
             uint verticalLineColor = (35u << 24) | 0x000000;
-            // Horizontal scanlines (alpha = 25)
-            uint horizontalLineColor = (25u << 24) | 0x000000;
-            // Intersection points get combined alpha
-            uint intersectionColor = (55u << 24) | 0x000000;
             
             for (int y = 0; y < _height; y++)
             {
-                bool isHorizontalLine = (y % _screenMultiplier) == 0;
-                
                 for (int x = 0; x < _width; x++)
                 {
-                    bool isVerticalLine = (x % _screenMultiplier) == 0;
-                    
-                    if (isVerticalLine && isHorizontalLine)
-                    {
-                        // Intersection of both scanlines
-                        scanlinesBuffer[y * _width + x] = intersectionColor;
-                    }
-                    else if (isVerticalLine)
+                    if ((x % _screenMultiplier) == 0)
                     {
                         scanlinesBuffer[y * _width + x] = verticalLineColor;
-                    }
-                    else if (isHorizontalLine)
-                    {
-                        scanlinesBuffer[y * _width + x] = horizontalLineColor;
                     }
                     // else: pixel remains 0 (fully transparent)
                 }

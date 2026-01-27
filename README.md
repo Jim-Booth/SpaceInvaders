@@ -9,15 +9,16 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
 - **Accurate Intel 8080 CPU emulation** - Full implementation of all 8080 opcodes
 - **Authentic display rendering** - Color zones matching original arcade cabinet (green, red, white)
 - **CRT effects** - Authentic arcade monitor simulation (Default ON):
-  - Bloom/glow (bright pixels bleed light into surroundings)
-  - Horizontal and vertical scanlines
-  - Rounded corners (barrel distortion)
-  - Vignette edge darkening
-  - Phosphor persistence (ghosting trails on moving objects)
-  - Horizontal blur (electron beam spread)
-  - Screen flicker (subtle brightness variation)
-  - Random horizontal jitter (signal instability)
-  - Power-on warmup (gradual brightness increase)
+- Bloom/glow (bright pixels bleed light into surroundings)
+- Vertical scanlines (simulating rotated CRT raster)
+- Rounded corners (barrel distortion)
+- Vignette edge darkening
+- Phosphor persistence (ghosting trails on moving objects)
+- Horizontal blur (electron beam spread)
+- Screen flicker (subtle brightness variation)
+- Random horizontal jitter (signal instability)
+- Power-on warmup (gradual brightness increase)
+- Power-on bounce (CRT deflection coil settling)
 - **Authentic audio** - Low-pass filtered sound effects simulating arcade cabinet speakers
 - **DIP switch emulation** - Configurable lives, bonus life threshold, and coin info display with persistent settings
 - **High score persistence** - High scores are saved to `settings.json` and restored on startup
@@ -156,13 +157,14 @@ The emulator includes authentic CRT monitor effects to recreate the arcade exper
 | Effect | Description |
 |--------|-------------|
 | **Bloom/Glow** | GPU-accelerated additive blending creates light bloom around bright pixels |
-| **Scanlines** | Horizontal and vertical lines simulating CRT raster |
+| **Scanlines** | Vertical lines simulating rotated CRT raster |
 | **Vignette** | Edge darkening with quadratic falloff from center |
 | **Rounded Corners** | Barrel distortion mask simulating curved CRT glass |
 | **Phosphor Persistence** | 75% decay rate creating ghosting trails on moving sprites |
 | **Screen Flicker** | 2% random brightness variation per frame |
 | **Horizontal Jitter** | Rare random horizontal displacement (signal instability) |
 | **Power-On Warmup** | 2-second gradual brightness increase on startup |
+| **Power-On Bounce** | Horizontal image bounce as CRT deflection coils energize |
 
 All CRT effects can be toggled with the **R** key.
 
