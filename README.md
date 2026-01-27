@@ -9,16 +9,16 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
 - **Accurate Intel 8080 CPU emulation** - Full implementation of all 8080 opcodes
 - **Authentic display rendering** - Color zones matching original arcade cabinet (green, red, white)
 - **CRT effects** - Authentic arcade monitor simulation (Default ON):
-- Bloom/glow (bright pixels bleed light into surroundings)
-- Vertical scanlines (simulating rotated CRT raster)
-- Rounded corners (barrel distortion)
-- Vignette edge darkening
-- Phosphor persistence (ghosting trails on moving objects)
-- Horizontal blur (electron beam spread)
-- Screen flicker (subtle brightness variation)
-- Random horizontal jitter (signal instability)
-- Power-on warmup (gradual brightness increase)
-- Power-on bounce (CRT deflection coil settling)
+  - Bloom/glow (bright pixels bleed light into surroundings)
+  - Vertical scanlines (simulating rotated CRT raster)
+  - Rounded corners (barrel distortion)
+  - Vignette edge darkening
+  - Phosphor persistence (ghosting trails on moving objects)
+  - Horizontal blur (electron beam spread)
+  - Screen flicker (subtle brightness variation)
+  - Random horizontal jitter (signal instability)
+  - Power-on warmup (gradual brightness increase)
+  - Power-on bounce (CRT deflection coil settling)
 - **Authentic audio** - Low-pass filtered sound effects simulating arcade cabinet speakers
 - **DIP switch emulation** - Configurable lives, bonus life threshold, and coin info display with persistent settings
 - **High score persistence** - High scores are saved to `settings.json` and restored on startup
