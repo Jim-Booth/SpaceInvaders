@@ -36,7 +36,7 @@ namespace SpaceInvaders.CABINET
         private readonly float BounceOvershoot = 0.80f;      // Brightness overshoot (0.20 = 20% over)
         private readonly float BounceDamping = 3.0f;         // How quickly oscillation decays
         private readonly float BounceFrequency = 3.0f;       // Number of oscillations during settle
-        private readonly int BounceMaxPixels = 50;           // Maximum pixel offset during bounce
+        private readonly int BounceMaxPixels = 30;           // Maximum pixel offset during bounce
         private readonly float PositionBounceDamping = 5.0f; // How quickly position settles 
         private readonly float PositionBounceFrequency = 8.0f; // Position oscillation frequency 
         
