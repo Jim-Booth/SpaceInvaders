@@ -43,9 +43,7 @@ namespace SpaceInvaders.CABINET
         // CRT power-off animation settings (classic CRT shutdown effect)
         private readonly float PowerOffHorizontalDuration = 0.15f; // Seconds to shrink width to vertical line
         private readonly float PowerOffVerticalDuration = 0.20f;   // Seconds to shrink line to dot
-        private readonly float PowerOffDotDuration = 0.10f;        // Seconds for dot to fade out
-        private readonly float FadeToBlackDuration = 0.5f;         // Seconds to fade screen to black
-        
+        private readonly float PowerOffDotDuration = 0.10f;        // Seconds for dot to fade out        
         private readonly Random _random = new();
         private readonly DateTime _startupTime;
         
@@ -57,7 +55,7 @@ namespace SpaceInvaders.CABINET
         /// <summary>
         /// Gets the current horizontal screen offset for the bounce effect.
         /// Returns pixel offset to apply to the render destination rectangle.
-        /// The original Space Invaders CRT is rotated 90°, so vertical deflection
+        /// The original Space Invaders CRT is rotated 90ï¿½, so vertical deflection
         /// coil bounce appears as horizontal movement to the player.
         /// </summary>
         public int GetScreenBounceOffset(int screenMultiplier)
@@ -560,7 +558,7 @@ namespace SpaceInvaders.CABINET
         /// <summary>
         /// Creates the pre-rendered scanlines texture.
         /// Renders vertical scanlines only (horizontal scanlines removed as the original
-        /// CRT is rotated 90°, making vertical lines the authentic scanline direction).
+        /// CRT is rotated 90ï¿½, making vertical lines the authentic scanline direction).
         /// </summary>
         private void CreateScanlinesTexture()
         {
