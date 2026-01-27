@@ -31,6 +31,7 @@ namespace SpaceInvaders.CABINET
         private readonly GameSettings _settings;
         private readonly int ScreenWidth = 223;
         private readonly int ScreenHeight = 256;
+        private int TitleBarHeight; // Calculated based on screen multiplier
         private volatile int _screenMultiplier = 3;
         private readonly object _resizeLock = new();
         private volatile bool _resizePending = false;
@@ -74,6 +75,7 @@ namespace SpaceInvaders.CABINET
         {
             _settings = GameSettings.Load();
             ApplyDipSwitches();
+            TitleBarHeight = OverlayRenderer.GetTitleBarHeight(_screenMultiplier);
             _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
             _renderBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
             InitializeSDL();
@@ -184,8 +186,9 @@ namespace SpaceInvaders.CABINET
                 // Resize CRT effects textures for new size
                 _crtEffects?.Resize(ScreenWidth, ScreenHeight, _screenMultiplier);
                 
-                // Resize window and re-center
-                SDL.SDL_SetWindowSize(_window, ScreenWidth * _screenMultiplier, ScreenHeight * _screenMultiplier);
+                // Resize window and re-center (include title bar height)
+                int newTitleBarHeight = OverlayRenderer.GetTitleBarHeight(_screenMultiplier);
+                SDL.SDL_SetWindowSize(_window, ScreenWidth * _screenMultiplier, ScreenHeight * _screenMultiplier + newTitleBarHeight);
                 SDL.SDL_SetWindowPosition(_window, SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED);
             }
             finally
@@ -206,12 +209,12 @@ namespace SpaceInvaders.CABINET
             }
 
             _window = SDL.SDL_CreateWindow(
-                "Space Invaders - Taito",
+                "Space Invaders",
                 SDL.SDL_WINDOWPOS_CENTERED,
                 SDL.SDL_WINDOWPOS_CENTERED,
                 ScreenWidth * _screenMultiplier,
-                ScreenHeight * _screenMultiplier,
-                SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN
+                ScreenHeight * _screenMultiplier + TitleBarHeight,
+                SDL.SDL_WindowFlags.SDL_WINDOW_SHOWN | SDL.SDL_WindowFlags.SDL_WINDOW_BORDERLESS
             );
 
             if (_window == IntPtr.Zero)
@@ -265,9 +268,6 @@ namespace SpaceInvaders.CABINET
             ExecuteSpaceInvaders();
             
             // Monitor for SDL events
-            Console.WriteLine("Controls: C=Coin, 1=1P Start, 2=2P Start, Arrows=Move, Space=Fire, P=Pause, ESC=Exit");
-            Console.WriteLine("Display:  [/]=Scale, B=Background, R=CRT Effects, S=Sound, F=FPS");
-            Console.WriteLine("DIP:      F1=Lives, F2=Bonus Life, F3=Coin Info, F4=FPS Warning");
             SDL.SDL_Event sdlEvent;
             while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {
@@ -283,6 +283,20 @@ namespace SpaceInvaders.CABINET
                         _cancellationTokenSource.Cancel();
                         _cpu?.Stop();
                         break;
+                    }
+                    else if (sdlEvent.type == SDL.SDL_EventType.SDL_MOUSEBUTTONDOWN)
+                    {
+                        // Check if close button was clicked
+                        if (sdlEvent.button.button == SDL.SDL_BUTTON_LEFT && _overlay != null)
+                        {
+                            if (_overlay.IsPointInCloseButton(sdlEvent.button.x, sdlEvent.button.y))
+                            {
+                                Console.WriteLine("\nClose button clicked. Exiting...");
+                                _cancellationTokenSource.Cancel();
+                                _cpu?.Stop();
+                                break;
+                            }
+                        }
                     }
                     else if (sdlEvent.type == SDL.SDL_EventType.SDL_KEYDOWN)
                     {
@@ -539,6 +553,7 @@ namespace SpaceInvaders.CABINET
             
             int scaledWidth = ScreenWidth * _screenMultiplier;
             int scaledHeight = ScreenHeight * _screenMultiplier;
+            int titleBarHeight = OverlayRenderer.GetTitleBarHeight(_screenMultiplier);
             
             // Update texture with pixel buffer
             if (_frameReady)
@@ -563,10 +578,22 @@ namespace SpaceInvaders.CABINET
             SDL.SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
             SDL.SDL_RenderClear(_renderer);
             
-            // Render background texture if enabled
+            // Draw custom title bar
+            _overlay?.DrawTitleBar(scaledWidth, _screenMultiplier, " space invaders - h for help");
+            
+            // Create destination rect offset by title bar height
+            SDL.SDL_Rect gameDestRect = new SDL.SDL_Rect 
+            { 
+                x = 0, 
+                y = titleBarHeight, 
+                w = scaledWidth, 
+                h = scaledHeight 
+            };
+            
+            // Render background texture if enabled (offset by title bar)
             if (_backgroundEnabled && _backgroundTexture != IntPtr.Zero)
             {
-                SDL.SDL_RenderCopy(_renderer, _backgroundTexture, IntPtr.Zero, IntPtr.Zero);
+                SDL.SDL_RenderCopy(_renderer, _backgroundTexture, IntPtr.Zero, ref gameDestRect);
             }
             
             // Get screen bounce offset for CRT power-on effect
@@ -575,29 +602,29 @@ namespace SpaceInvaders.CABINET
             
             // Render game texture on top (with alpha blending - transparent pixels show background)
             // Apply horizontal bounce offset during CRT warmup/settle
-            if (bounceOffset != 0)
-            {
-                SDL.SDL_Rect destRect = new SDL.SDL_Rect 
-                { 
-                    x = bounceOffset, 
-                    y = 0, 
-                    w = scaledWidth, 
-                    h = scaledHeight 
-                };
-                SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, ref destRect);
-            }
-            else
-            {
-                SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, IntPtr.Zero);
-            }
+            SDL.SDL_Rect textureDestRect = new SDL.SDL_Rect 
+            { 
+                x = bounceOffset, 
+                y = titleBarHeight, 
+                w = scaledWidth, 
+                h = scaledHeight 
+            };
+            SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, ref textureDestRect);
             
             if (_crtEffects != null && _crtEffects.Enabled)
             {
+                // Set viewport to offset CRT overlays by title bar height
+                SDL.SDL_Rect viewport = new SDL.SDL_Rect { x = 0, y = titleBarHeight, w = scaledWidth, h = scaledHeight };
+                SDL.SDL_RenderSetViewport(_renderer, ref viewport);
                 _crtEffects.RenderOverlays(_renderer, scaledWidth, scaledHeight, _screenMultiplier);
+                
+                // Reset viewport to full window
+                SDL.SDL_Rect fullViewport = new SDL.SDL_Rect { x = 0, y = 0, w = scaledWidth, h = scaledHeight + titleBarHeight };
+                SDL.SDL_RenderSetViewport(_renderer, ref fullViewport);
             }
             
-            // Draw overlay message if active
-            _overlay?.DrawMessage(scaledWidth, scaledHeight, _screenMultiplier);
+            // Draw overlay message if active (offset by title bar)
+            _overlay?.DrawMessage(scaledWidth, scaledHeight + titleBarHeight, _screenMultiplier);
             
             // Update and draw FPS counter, check for low FPS warning
             _overlay?.UpdateFps();
@@ -607,10 +634,18 @@ namespace SpaceInvaders.CABINET
                 // Suppress warning during CRT warmup period (brightness fade-in)
                 if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 40 && _crtEffects.WarmupComplete)
                 {
-                    _overlay.DrawLowFpsWarning(scaledWidth, scaledHeight, _screenMultiplier);
+                    _overlay.DrawLowFpsWarning(scaledWidth, scaledHeight + titleBarHeight, _screenMultiplier);
                 }
             }
             _overlay?.DrawFpsCounter(scaledWidth, _screenMultiplier);
+            
+            // Draw DIP switch and display settings overlay if enabled
+            bool crtEnabled = _crtEffects?.Enabled ?? false;
+            _overlay?.DrawDipSwitchOverlay(scaledWidth, scaledHeight + titleBarHeight, _screenMultiplier, _settings, 
+                crtEnabled, _soundEnabled, _backgroundEnabled);
+            
+            // Draw controls help overlay if enabled
+            _overlay?.DrawControlsOverlay(scaledWidth, scaledHeight + titleBarHeight, _screenMultiplier);
             
             SDL.SDL_RenderPresent(_renderer);
         }
@@ -742,6 +777,24 @@ namespace SpaceInvaders.CABINET
                 {
                     _overlay.FpsWarningEnabled = !_overlay.FpsWarningEnabled;
                     _overlay.ShowMessage(_overlay.FpsWarningEnabled ? "fpswarning:on" : "fpswarning:off", TimeSpan.FromSeconds(2));
+                }
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_F5)
+            {
+                if (_overlay != null)
+                {
+                    _overlay.DipSwitchOverlayEnabled = !_overlay.DipSwitchOverlayEnabled;
+                }
+                return;
+            }
+            
+            if (key == SDL.SDL_Keycode.SDLK_h)
+            {
+                if (_overlay != null)
+                {
+                    _overlay.ControlsOverlayEnabled = !_overlay.ControlsOverlayEnabled;
                 }
                 return;
             }

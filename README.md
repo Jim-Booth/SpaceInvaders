@@ -24,6 +24,7 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
 - **DIP switch emulation** - Configurable lives, bonus life threshold, and coin info display with persistent settings
 - **High score persistence** - High scores are saved to `settings.json` and restored on startup
 - **Background texture support** - Overlay game on custom cabinet artwork
+- **Custom title bar** - Borderless window with Space Invaders icon, clean pixel font, and close button
 - **Scalable display** - 1x to 4x resolution scaling (Default is 3x)
 - **Cross-platform** - Runs on Windows, macOS, and Linux
 
@@ -69,6 +70,7 @@ dotnet run
 | **S** | Toggle sound on/off (default: on) |
 | **F** | Toggle FPS counter (default: off) |
 | **F4** | Toggle low FPS warning (default: on) |
+| **H** | Toggle controls help overlay |
 
 ### DIP Switch Controls
 
@@ -77,6 +79,7 @@ dotnet run
 | **F1** | Cycle lives (3 → 4 → 5 → 6) |
 | **F2** | Toggle bonus life threshold (1500 / 1000) |
 | **F3** | Toggle coin info display |
+| **F5** | Toggle DIP switch status overlay |
 
 ## DIP Switches
 
@@ -118,7 +121,7 @@ Place WAV sound files in the `SOUNDS/` directory:
 
 ## Background Texture
 
-Place a `Cabinet.bmp` file in the `CABINET/` directory to display a background image behind the game. Press **B** to toggle visibility at runtime.
+Place a `Cabinet.bmp` file in the application directory (same folder as the executable) to display a background image behind the game. Press **B** to toggle visibility at runtime.
 
 ## Project Structure
 
