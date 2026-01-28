@@ -279,7 +279,7 @@ namespace SpaceInvaders.CABINET
                 {
                     if (sdlEvent.type == SDL.SDL_EventType.SDL_QUIT)
                     {
-                        Console.WriteLine("\nWindow closed. Exiting...");
+                        Console.WriteLine("Exiting...");
                         _cancellationTokenSource.Cancel();
                         _cpu?.Stop();
                         break;
@@ -291,7 +291,7 @@ namespace SpaceInvaders.CABINET
                         {
                             if (_overlay.IsPointInCloseButton(sdlEvent.button.x, sdlEvent.button.y))
                             {
-                                Console.WriteLine("\nClose button clicked. Exiting...");
+                                Console.WriteLine("Exiting...");
                                 _cancellationTokenSource.Cancel();
                                 _cpu?.Stop();
                                 break;
@@ -333,11 +333,15 @@ namespace SpaceInvaders.CABINET
             }          
             
             // Wait for threads to finish
-            Console.WriteLine("Waiting for threads to terminate...");
+            Console.Write("Waiting for threads to terminate.");
             _cpuThread?.Join(2000);
+            Console.Write(".");
             _portThread?.Join(1000);
+            Console.Write(".");
             _displayThread?.Join(1000);
+            Console.Write(".");
             _soundThread?.Join(1000);
+            Console.Write(". ");
 
             // Play CRT power-off animation (only if CRT effects are enabled)
             if (_crtEffects?.Enabled == true)
@@ -361,7 +365,7 @@ namespace SpaceInvaders.CABINET
                 SDL.SDL_DestroyWindow(_window);
             SDL.SDL_Quit();
             
-            Console.WriteLine("Cleanup complete. Exiting.");
+            Console.Write("Done.");
         }
 
         /// <summary>
@@ -400,7 +404,6 @@ namespace SpaceInvaders.CABINET
                 // Wait for game initialization to complete (clears RAM including high score area)
                 Thread.Sleep(100);
                 _cpu.Memory.WriteHighScore(_settings.HighScore);
-                Console.WriteLine($"Restored high score: {_settings.HighScore}");
             }
 
             _portThread = new Thread(PortThread)
@@ -679,7 +682,7 @@ namespace SpaceInvaders.CABINET
         {
             if (key == SDL.SDL_Keycode.SDLK_ESCAPE)
             {
-                Console.WriteLine("\nEscape pressed. Exiting...");
+                Console.WriteLine("Exiting...");
                 _cancellationTokenSource.Cancel();
                 _cpu?.Stop();
                 return;
