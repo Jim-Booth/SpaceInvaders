@@ -524,7 +524,7 @@ namespace SpaceInvaders.CABINET
                     float cornerDist = (float)Math.Sqrt(cornerX * cornerX + cornerY * cornerY);
                     
                     float r2 = nx * nx + ny * ny;
-                    float edgeDark = r2 * 0.2f;
+                    float edgeDark = r2 * 0.1f;
                     
                     byte alpha;
                     if (cornerDist > cornerRadius)
