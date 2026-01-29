@@ -16,6 +16,10 @@ namespace SpaceInvaders.CABINET
 {
     public class Cabinet
     {
+        // ====================================================================
+        // FIELDS
+        // ====================================================================
+        
         private Intel8080? _cpu;
         private Thread? _portThread;
         private Thread? _cpuThread;
@@ -82,6 +86,10 @@ namespace SpaceInvaders.CABINET
         // This eliminates per-pixel color zone calculations
         private uint[] _colorLookup = null!;
 
+        // ====================================================================
+        // INITIALIZATION (Constructor and helpers called during construction)
+        // ====================================================================
+
         public Cabinet()
         {
             _settings = GameSettings.Load();
@@ -94,6 +102,17 @@ namespace SpaceInvaders.CABINET
             LoadBackgroundTexture();
             _crtEffects = new CrtEffects(_renderer, ScreenWidth, ScreenHeight, _screenMultiplier);
             _overlay = new OverlayRenderer(_renderer);
+        }
+
+        /// <summary>
+        /// Applies DIP switch settings to Port 2.
+        /// Preserves player input bits (4-6) while setting DIP bits (0-1, 3, 7).
+        /// </summary>
+        private void ApplyDipSwitches()
+        {
+            byte dipBits = _settings.GetPort2DipBits();
+            // Clear DIP switch bits (0-1, 3, 7) and preserve player input bits (2, 4-6)
+            _inputPorts[2] = (byte)((_inputPorts[2] & 0x74) | dipBits);
         }
         
         /// <summary>
@@ -120,122 +139,6 @@ namespace SpaceInvaders.CABINET
                     _colorLookup[y] = ColorRed;        // UFO area
                 else
                     _colorLookup[y] = ColorWhite;      // Default play area
-            }
-        }
-
-        /// <summary>
-        /// Loads the cabinet background texture from Cabinet.bmp if available.
-        /// </summary>
-        private void LoadBackgroundTexture()
-        {
-            string backgroundPath = Path.Combine(AppPath, "Cabinet.bmp");
-            if (!File.Exists(backgroundPath))
-            {
-                return;
-            }
-
-            IntPtr surface = SDL.SDL_LoadBMP(backgroundPath);
-            
-            if (surface == IntPtr.Zero)
-            {
-                return;
-            }
-
-            _backgroundTexture = SDL.SDL_CreateTextureFromSurface(_renderer, surface);
-            SDL.SDL_FreeSurface(surface);
-
-            if (_backgroundTexture != IntPtr.Zero)
-            {
-                // Ensure background renders without blending (fully opaque)
-                SDL.SDL_SetTextureBlendMode(_backgroundTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_NONE);
-            }
-        }
-
-        /// <summary>
-        /// Requests a display resize to a new scale multiplier (1-4x).
-        /// </summary>
-        private void RequestResize(int newMultiplier)
-        {
-            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == _screenMultiplier)
-                return;
-
-            _pendingMultiplier = newMultiplier;
-            _resizePending = true;
-        }
-
-        /// <summary>
-        /// Processes any pending resize request on the main thread.
-        /// </summary>
-        private void ProcessPendingResize()
-        {
-            if (!_resizePending)
-                return;
-
-            int newMultiplier = _pendingMultiplier;
-
-            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == _screenMultiplier)
-            {
-                _resizePending = false;
-                return;
-            }
-
-            // Wait briefly for display thread to notice the pending flag and yield
-            Thread.Sleep(50);
-
-            // Use TryEnter with timeout to avoid deadlock
-            bool lockTaken = false;
-            try
-            {
-                Monitor.TryEnter(_resizeLock, 100, ref lockTaken);
-                if (!lockTaken)
-                {
-                    // Could not acquire lock, will retry next frame
-                    return;
-                }
-
-                _screenMultiplier = newMultiplier;
-                _resizePending = false;
-                
-                // Destroy old texture
-                if (_texture != IntPtr.Zero)
-                    SDL.SDL_DestroyTexture(_texture);
-                
-                // Recreate pixel buffer at new scaled size
-                _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
-                _renderBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
-                _frameReady = false;
-                
-                // Color lookup table doesn't need rebuilding - it's based on unscaled coordinates
-                
-                // Recreate texture at new scaled size
-                _texture = SDL.SDL_CreateTexture(
-                    _renderer,
-                    SDL.SDL_PIXELFORMAT_ARGB8888,
-                    (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
-                    ScreenWidth * _screenMultiplier,
-                    ScreenHeight * _screenMultiplier
-                );
-                
-                if (_texture == IntPtr.Zero)
-                {
-                    throw new Exception($"Texture could not be created! SDL_Error: {SDL.SDL_GetError()}");
-                }
-                
-                // Enable alpha blending on the game texture so background shows through
-                SDL.SDL_SetTextureBlendMode(_texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
-                
-                // Resize CRT effects textures for new size
-                _crtEffects?.Resize(ScreenWidth, ScreenHeight, _screenMultiplier);
-                
-                // Resize window and re-center (include title bar height)
-                int newTitleBarHeight = OverlayRenderer.GetTitleBarHeight(_screenMultiplier);
-                SDL.SDL_SetWindowSize(_window, ScreenWidth * _screenMultiplier, ScreenHeight * _screenMultiplier + newTitleBarHeight);
-                SDL.SDL_SetWindowPosition(_window, SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED);
-            }
-            finally
-            {
-                if (lockTaken)
-                    Monitor.Exit(_resizeLock);
             }
         }
 
@@ -291,15 +194,36 @@ namespace SpaceInvaders.CABINET
         }
 
         /// <summary>
-        /// Applies DIP switch settings to Port 2.
-        /// Preserves player input bits (4-6) while setting DIP bits (0-1, 3, 7).
+        /// Loads the cabinet background texture from Cabinet.bmp if available.
         /// </summary>
-        private void ApplyDipSwitches()
+        private void LoadBackgroundTexture()
         {
-            byte dipBits = _settings.GetPort2DipBits();
-            // Clear DIP switch bits (0-1, 3, 7) and preserve player input bits (2, 4-6)
-            _inputPorts[2] = (byte)((_inputPorts[2] & 0x74) | dipBits);
+            string backgroundPath = Path.Combine(AppPath, "Cabinet.bmp");
+            if (!File.Exists(backgroundPath))
+            {
+                return;
+            }
+
+            IntPtr surface = SDL.SDL_LoadBMP(backgroundPath);
+            
+            if (surface == IntPtr.Zero)
+            {
+                return;
+            }
+
+            _backgroundTexture = SDL.SDL_CreateTextureFromSurface(_renderer, surface);
+            SDL.SDL_FreeSurface(surface);
+
+            if (_backgroundTexture != IntPtr.Zero)
+            {
+                // Ensure background renders without blending (fully opaque)
+                SDL.SDL_SetTextureBlendMode(_backgroundTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_NONE);
+            }
         }
+
+        // ====================================================================
+        // MAIN EXECUTION (Entry point and CPU/thread initialization)
+        // ====================================================================
 
         /// <summary>
         /// Starts the emulator and runs the main event loop until exit.
@@ -501,6 +425,10 @@ namespace SpaceInvaders.CABINET
             _soundThread.Start();
         }
 
+        // ====================================================================
+        // BACKGROUND THREADS (Started from ExecuteSpaceInvaders)
+        // ====================================================================
+
         /// <summary>
         /// Background thread that synchronizes input port data with the CPU.
         /// </summary>
@@ -581,7 +509,7 @@ namespace SpaceInvaders.CABINET
                         int ptr = 0;
                         
                         // Process video memory column by column
-                        // Original display is 256x224, rotated 90� CCW to 224x256
+                        // Original display is 256x224, rotated 90° CCW to 224x256
                         // Video memory is organized as columns of 8 pixels per byte
                         // Byte 0 contains Y pixels 0-7 (bottom of screen), bit 0 = Y0
                         for (int col = 0; col < ScreenWidth; col++)
@@ -663,6 +591,130 @@ namespace SpaceInvaders.CABINET
                     }
                     catch { }
                 }
+            }
+        }
+
+        /// <summary>
+        /// Background thread that monitors output ports and triggers sound playback.
+        /// </summary>
+        private void SoundThread()
+        {
+            byte prevPort3 = new();
+            byte prevPort5 = new();
+
+            while (!_soundLoop.IsCancellationRequested)
+            {
+                _cpu!.SoundTiming.WaitOne();
+                if (_soundEnabled && prevPort3 != _cpu!.PortOut[3])
+                {
+                    if (((_cpu.PortOut[3] & 0x01) == 0x01) && ((_cpu.PortOut[3] & 0x01) != (prevPort3 & 0x01)))
+                        AudioPlaybackEngine.Instance.PlaySound(_ufoLowpitch);
+                    if (((_cpu.PortOut[3] & 0x02) == 0x02) && ((_cpu.PortOut[3] & 0x02) != (prevPort3 & 0x02)))
+                        AudioPlaybackEngine.Instance.PlaySound(_shoot);
+                    if (((_cpu.PortOut[3] & 0x04) == 0x04) && ((_cpu.PortOut[3] & 0x04) != (prevPort3 & 0x04)))
+                        AudioPlaybackEngine.Instance.PlaySound(_explosion);
+                    if (((_cpu.PortOut[3] & 0x08) == 0x08) && ((_cpu.PortOut[3] & 0x08) != (prevPort3 & 0x08)))
+                        AudioPlaybackEngine.Instance.PlaySound(_invaderkilled);
+                    if (((_cpu.PortOut[3] & 0x08) == 0x08) && ((_cpu.PortOut[3] & 0x10) != (prevPort3 & 0x10)))
+                        AudioPlaybackEngine.Instance.PlaySound(_extendedplay);
+                }
+                prevPort3 = _cpu!.PortOut[3];
+
+                if (_soundEnabled && prevPort5 != _cpu.PortOut[5])
+                {
+                    if (((_cpu.PortOut[5] & 0x01) == 0x01) && ((_cpu.PortOut[5] & 0x01) != (prevPort5 & 0x01)))
+                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader1);
+                    if (((_cpu.PortOut[5] & 0x02) == 0x02) && ((_cpu.PortOut[5] & 0x02) != (prevPort5 & 0x02)))
+                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader2);
+                    if (((_cpu.PortOut[5] & 0x04) == 0x04) && ((_cpu.PortOut[5] & 0x04) != (prevPort5 & 0x04)))
+                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader3);
+                    if (((_cpu.PortOut[5] & 0x08) == 0x08) && ((_cpu.PortOut[5] & 0x08) != (prevPort5 & 0x08)))
+                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader4);
+                    if (((_cpu.PortOut[5] & 0x10) == 0x10) && ((_cpu.PortOut[5] & 0x10) != (prevPort5 & 0x10)))
+                        AudioPlaybackEngine.Instance.PlaySound(_explosion);
+                }
+                prevPort5 = _cpu!.PortOut[5];
+                Thread.Sleep(4);
+            }
+        }
+
+        // ====================================================================
+        // MAIN LOOP OPERATIONS (Called repeatedly from PowerOn event loop)
+        // ====================================================================
+
+        /// <summary>
+        /// Processes any pending resize request on the main thread.
+        /// </summary>
+        private void ProcessPendingResize()
+        {
+            if (!_resizePending)
+                return;
+
+            int newMultiplier = _pendingMultiplier;
+
+            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == _screenMultiplier)
+            {
+                _resizePending = false;
+                return;
+            }
+
+            // Wait briefly for display thread to notice the pending flag and yield
+            Thread.Sleep(50);
+
+            // Use TryEnter with timeout to avoid deadlock
+            bool lockTaken = false;
+            try
+            {
+                Monitor.TryEnter(_resizeLock, 100, ref lockTaken);
+                if (!lockTaken)
+                {
+                    // Could not acquire lock, will retry next frame
+                    return;
+                }
+
+                _screenMultiplier = newMultiplier;
+                _resizePending = false;
+                
+                // Destroy old texture
+                if (_texture != IntPtr.Zero)
+                    SDL.SDL_DestroyTexture(_texture);
+                
+                // Recreate pixel buffer at new scaled size
+                _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
+                _renderBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
+                _frameReady = false;
+                
+                // Color lookup table doesn't need rebuilding - it's based on unscaled coordinates
+                
+                // Recreate texture at new scaled size
+                _texture = SDL.SDL_CreateTexture(
+                    _renderer,
+                    SDL.SDL_PIXELFORMAT_ARGB8888,
+                    (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
+                    ScreenWidth * _screenMultiplier,
+                    ScreenHeight * _screenMultiplier
+                );
+                
+                if (_texture == IntPtr.Zero)
+                {
+                    throw new Exception($"Texture could not be created! SDL_Error: {SDL.SDL_GetError()}");
+                }
+                
+                // Enable alpha blending on the game texture so background shows through
+                SDL.SDL_SetTextureBlendMode(_texture, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
+                
+                // Resize CRT effects textures for new size
+                _crtEffects?.Resize(ScreenWidth, ScreenHeight, _screenMultiplier);
+                
+                // Resize window and re-center (include title bar height)
+                int newTitleBarHeight = OverlayRenderer.GetTitleBarHeight(_screenMultiplier);
+                SDL.SDL_SetWindowSize(_window, ScreenWidth * _screenMultiplier, ScreenHeight * _screenMultiplier + newTitleBarHeight);
+                SDL.SDL_SetWindowPosition(_window, SDL.SDL_WINDOWPOS_CENTERED, SDL.SDL_WINDOWPOS_CENTERED);
+            }
+            finally
+            {
+                if (lockTaken)
+                    Monitor.Exit(_resizeLock);
             }
         }
 
@@ -781,8 +833,9 @@ namespace SpaceInvaders.CABINET
             SDL.SDL_RenderPresent(_renderer);
         }
 
-        // GetColorValue method removed - replaced by pre-computed _colorLookup table
-        // Color lookup is now O(1) array access instead of multiple conditional branches
+        // ====================================================================
+        // INPUT HANDLING (Called from event processing in PowerOn loop)
+        // ====================================================================
 
         /// <summary>
         /// Handles keyboard key press events for game controls and settings.
@@ -961,48 +1014,16 @@ namespace SpaceInvaders.CABINET
         }
 
         /// <summary>
-        /// Background thread that monitors output ports and triggers sound playback.
+        /// Requests a display resize to a new scale multiplier (1-4x).
         /// </summary>
-        private void SoundThread()
+        private void RequestResize(int newMultiplier)
         {
-            byte prevPort3 = new();
-            byte prevPort5 = new();
+            if (newMultiplier < 1 || newMultiplier > 4 || newMultiplier == _screenMultiplier)
+                return;
 
-            while (!_soundLoop.IsCancellationRequested)
-            {
-                _cpu!.SoundTiming.WaitOne();
-                if (_soundEnabled && prevPort3 != _cpu!.PortOut[3])
-                {
-                    if (((_cpu.PortOut[3] & 0x01) == 0x01) && ((_cpu.PortOut[3] & 0x01) != (prevPort3 & 0x01)))
-                        AudioPlaybackEngine.Instance.PlaySound(_ufoLowpitch);
-                    if (((_cpu.PortOut[3] & 0x02) == 0x02) && ((_cpu.PortOut[3] & 0x02) != (prevPort3 & 0x02)))
-                        AudioPlaybackEngine.Instance.PlaySound(_shoot);
-                    if (((_cpu.PortOut[3] & 0x04) == 0x04) && ((_cpu.PortOut[3] & 0x04) != (prevPort3 & 0x04)))
-                        AudioPlaybackEngine.Instance.PlaySound(_explosion);
-                    if (((_cpu.PortOut[3] & 0x08) == 0x08) && ((_cpu.PortOut[3] & 0x08) != (prevPort3 & 0x08)))
-                        AudioPlaybackEngine.Instance.PlaySound(_invaderkilled);
-                    if (((_cpu.PortOut[3] & 0x08) == 0x08) && ((_cpu.PortOut[3] & 0x10) != (prevPort3 & 0x10)))
-                        AudioPlaybackEngine.Instance.PlaySound(_extendedplay);
-                }
-                prevPort3 = _cpu!.PortOut[3];
-
-                if (_soundEnabled && prevPort5 != _cpu.PortOut[5])
-                {
-                    if (((_cpu.PortOut[5] & 0x01) == 0x01) && ((_cpu.PortOut[5] & 0x01) != (prevPort5 & 0x01)))
-                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader1);
-                    if (((_cpu.PortOut[5] & 0x02) == 0x02) && ((_cpu.PortOut[5] & 0x02) != (prevPort5 & 0x02)))
-                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader2);
-                    if (((_cpu.PortOut[5] & 0x04) == 0x04) && ((_cpu.PortOut[5] & 0x04) != (prevPort5 & 0x04)))
-                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader3);
-                    if (((_cpu.PortOut[5] & 0x08) == 0x08) && ((_cpu.PortOut[5] & 0x08) != (prevPort5 & 0x08)))
-                        AudioPlaybackEngine.Instance.PlaySound(_fastinvader4);
-                    if (((_cpu.PortOut[5] & 0x10) == 0x10) && ((_cpu.PortOut[5] & 0x10) != (prevPort5 & 0x10)))
-                        AudioPlaybackEngine.Instance.PlaySound(_explosion);
-                }
-                prevPort5 = _cpu!.PortOut[5];
-                Thread.Sleep(4);
-            }
-       }
+            _pendingMultiplier = newMultiplier;
+            _resizePending = true;
+        }
 
         /// <summary>
         /// Sets the appropriate input port bits when a key is pressed.
