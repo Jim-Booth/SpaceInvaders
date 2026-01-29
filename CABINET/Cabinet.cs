@@ -92,18 +92,23 @@ namespace SpaceInvaders.CABINET
         /// <summary>
         /// Builds a pre-computed color lookup table for each Y coordinate.
         /// This eliminates per-pixel color zone boundary checks during rendering.
+        /// 
+        /// Based on original GetColorValue method (unscaled screen coordinates, Y=0 at top):
+        /// - Green: Y > 195 && Y < 239 (player and shields area)
+        /// - White2: Y > 240 && Y < 256 (bottom lives area - green override for X < 127)
+        /// - Red: Y > 32 && Y < 64 (UFO area)
+        /// - White: everything else
         /// </summary>
         private void BuildColorLookupTable()
         {
             _colorLookup = new uint[ScreenHeight];
             for (int y = 0; y < ScreenHeight; y++)
             {
-                // Color zones based on original arcade overlay (unscaled coordinates)
-                // Y=0 is top of screen (UFO area), Y=255 is bottom (player/shields)
+                // Color zones matching original GetColorValue logic (unscaled coordinates)
                 if (y > 195 && y < 239)
                     _colorLookup[y] = ColorGreen;      // Player and shields area
-                else if (y > 240 && y < 256)
-                    _colorLookup[y] = ColorWhite2;     // Score area (handled specially for X < 127)
+                else if (y > 240)
+                    _colorLookup[y] = ColorWhite2;     // Bottom lives area (green handled separately for X < 127)
                 else if (y > 32 && y < 64)
                     _colorLookup[y] = ColorRed;        // UFO area
                 else
@@ -550,24 +555,32 @@ namespace SpaceInvaders.CABINET
                                 {
                                     if ((value & (1 << bit)) == 0) continue;
                                     
-                                    // Calculate unscaled Y coordinate
-                                    // byteRow 0 = Y 0-7, byteRow 1 = Y 8-15, etc.
-                                    // But screen Y=0 is at TOP, and video memory starts at BOTTOM
-                                    // So we need to flip: screenY = 255 - videoY
+                                    // Calculate unscaled Y coordinate for pixel placement
+                                    // Video memory byte 0 = bottom of screen (Y=255 in screen coords)
+                                    // Screen Y=0 is TOP, Y=255 is BOTTOM
                                     int videoY = byteRow * 8 + bit;
-                                    int unscaledY = (ScreenHeight - 1) - videoY;
-                                    if (unscaledY < 0 || unscaledY >= ScreenHeight) continue;
+                                    int screenY = (ScreenHeight - 1) - videoY;
+                                    if (screenY < 0 || screenY >= ScreenHeight) continue;
+                                    
+                                    // For color lookup, use the byte row's base Y position
+                                    // This matches original GetColorValue which used 'y' (the loop variable),
+                                    // not the individual pixel Y. The original 'y' was:
+                                    // y = scaledHeight - (byteRow * 8 * multiplier), then unscaled = y / multiplier
+                                    // Which simplifies to: colorY = screenHeight - (byteRow * 8) = (255 - byteRow*8)
+                                    int colorY = (ScreenHeight) - (byteRow * 8);
+                                    if (colorY >= ScreenHeight) colorY = ScreenHeight - 1;
+                                    if (colorY < 0) colorY = 0;
                                     
                                     // Look up color from pre-computed table
-                                    // Handle special case: score area (Y > 240) with X < 127 is green
+                                    // Handle special case: lives area (colorY > 240) with X < 127 is green
                                     uint colorValue;
-                                    if (unscaledY > 240 && col < 127)
+                                    if (colorY > 240 && col < 127)
                                         colorValue = ColorGreen;
                                     else
-                                        colorValue = colorLookup[unscaledY];
+                                        colorValue = colorLookup[colorY];
                                     
                                     // Calculate scaled pixel position
-                                    int scaledY = unscaledY * multiplier;
+                                    int scaledY = screenY * multiplier;
                                     
                                     // Write scaled pixel block using optimized row fills
                                     for (int dy = 0; dy < multiplier; dy++)
