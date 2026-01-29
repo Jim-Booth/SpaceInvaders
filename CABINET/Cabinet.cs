@@ -51,6 +51,12 @@ namespace SpaceInvaders.CABINET
         private IntPtr _backgroundTexture;
         private bool _soundEnabled = true;
         private bool _gamePaused = false;
+        
+        // Window dragging state
+        private bool _isDraggingWindow = false;
+        private int _dragOffsetX;
+        private int _dragOffsetY;
+        
         private uint[] _pixelBuffer;
         private static readonly string AppPath = AppDomain.CurrentDomain.BaseDirectory;
 
@@ -330,6 +336,41 @@ namespace SpaceInvaders.CABINET
                                 _cancellationTokenSource.Cancel();
                                 _cpu?.Stop();
                                 break;
+                            }
+                            
+                            // Check if click is on title bar (for window dragging)
+                            int titleBarHeight = OverlayRenderer.GetTitleBarHeight(_screenMultiplier);
+                            if (sdlEvent.button.y < titleBarHeight)
+                            {
+                                _isDraggingWindow = true;
+                                SDL.SDL_GetWindowPosition(_window, out int winX, out int winY);
+                                _dragOffsetX = sdlEvent.button.x;
+                                _dragOffsetY = sdlEvent.button.y;
+                            }
+                        }
+                    }
+                    else if (sdlEvent.type == SDL.SDL_EventType.SDL_MOUSEBUTTONUP)
+                    {
+                        if (sdlEvent.button.button == SDL.SDL_BUTTON_LEFT)
+                        {
+                            _isDraggingWindow = false;
+                        }
+                    }
+                    else if (sdlEvent.type == SDL.SDL_EventType.SDL_MOUSEMOTION)
+                    {
+                        if (_isDraggingWindow)
+                        {
+                            // Calculate how far the mouse has moved from the initial click point
+                            // and move the window by that amount
+                            int deltaX = sdlEvent.motion.x - _dragOffsetX;
+                            int deltaY = sdlEvent.motion.y - _dragOffsetY;
+                            
+                            if (deltaX != 0 || deltaY != 0)
+                            {
+                                SDL.SDL_GetWindowPosition(_window, out int winX, out int winY);
+                                SDL.SDL_SetWindowPosition(_window, winX + deltaX, winY + deltaY);
+                                // Note: we don't update _dragOffsetX/Y because after moving the window,
+                                // the mouse position relative to window resets to the original offset
                             }
                         }
                     }
