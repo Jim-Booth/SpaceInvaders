@@ -162,6 +162,7 @@ The emulator includes authentic CRT monitor effects to recreate the arcade exper
 |--------|-------------|
 | **Bloom/Glow** | GPU-accelerated additive blending creates light bloom around bright pixels |
 | **Scanlines** | Vertical lines simulating rotated CRT raster |
+| **Shadow Mask** | Subtle RGB phosphor triad pattern simulating CRT subpixel structure |
 | **Vignette** | Edge darkening with quadratic falloff from center |
 | **Rounded Corners** | Barrel distortion mask simulating curved CRT glass |
 | **Phosphor Persistence** | 75% decay rate creating ghosting trails on moving sprites |

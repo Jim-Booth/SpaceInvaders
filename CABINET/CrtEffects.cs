@@ -86,6 +86,7 @@ namespace SpaceInvaders.CABINET
         private IntPtr _vignetteTexture;
         private IntPtr _screenMaskTexture;
         private IntPtr _scanlinesTexture;
+        private IntPtr _shadowMaskTexture;
         private IntPtr _bloomTexture;
         private IntPtr _renderer;
         
@@ -111,6 +112,7 @@ namespace SpaceInvaders.CABINET
             CreateVignetteTexture();
             CreateScreenMaskTexture();
             CreateScanlinesTexture();
+            CreateShadowMaskTexture();
             CreateBloomTexture();
         }
 
@@ -128,6 +130,7 @@ namespace SpaceInvaders.CABINET
             CreateVignetteTexture();
             CreateScreenMaskTexture();
             CreateScanlinesTexture();
+            CreateShadowMaskTexture();
             CreateBloomTexture();
         }
 
@@ -403,6 +406,12 @@ namespace SpaceInvaders.CABINET
                 SDL.SDL_RenderCopy(renderer, _scanlinesTexture, IntPtr.Zero, IntPtr.Zero);
             }
             
+            // Shadow mask (RGB phosphor pattern)
+            if (_shadowMaskTexture != IntPtr.Zero)
+            {
+                SDL.SDL_RenderCopy(renderer, _shadowMaskTexture, IntPtr.Zero, IntPtr.Zero);
+            }
+            
             // Vignette overlay
             if (_vignetteTexture != IntPtr.Zero)
             {
@@ -601,6 +610,94 @@ namespace SpaceInvaders.CABINET
                 {
                     SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = _width, h = _height };
                     SDL.SDL_UpdateTexture(_scanlinesTexture, ref fullRect, (IntPtr)pixels, _width * sizeof(uint));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Creates the RGB shadow mask texture simulating CRT phosphor triads.
+        /// This creates the characteristic RGB dot pattern visible on real CRT screens.
+        /// </summary>
+        private void CreateShadowMaskTexture()
+        {
+            if (_shadowMaskTexture != IntPtr.Zero)
+                SDL.SDL_DestroyTexture(_shadowMaskTexture);
+            
+            _shadowMaskTexture = SDL.SDL_CreateTexture(
+                _renderer,
+                SDL.SDL_PIXELFORMAT_ARGB8888,
+                (int)SDL.SDL_TextureAccess.SDL_TEXTUREACCESS_STREAMING,
+                _width,
+                _height
+            );
+            
+            if (_shadowMaskTexture == IntPtr.Zero)
+                return;
+            
+            // Use multiplicative blending to darken non-phosphor areas
+            SDL.SDL_SetTextureBlendMode(_shadowMaskTexture, SDL.SDL_BlendMode.SDL_BLENDMODE_MOD);
+            
+            uint[] maskBuffer = new uint[_width * _height];
+            
+            // Shadow mask pattern: RGB phosphor triads
+            // Each "pixel" on a CRT is actually 3 colored phosphor dots
+            // Pattern repeats every 3 columns horizontally
+            int cellWidth = Math.Max(1, _screenMultiplier);
+            int cellHeight = Math.Max(1, _screenMultiplier);
+            
+            // Phosphor brightness - very subtle effect (closer to 255 = less visible)
+            byte phosphorBright = 255;
+            byte phosphorDim = 250;  // Gap between phosphors barely visible
+            
+            for (int y = 0; y < _height; y++)
+            {
+                for (int x = 0; x < _width; x++)
+                {
+                    // Determine which phosphor this pixel belongs to (R, G, or B)
+                    int cellX = x / cellWidth;
+                    int phosphorIndex = cellX % 3;  // 0=R, 1=G, 2=B
+                    
+                    // Position within the cell
+                    int subX = x % cellWidth;
+                    int subY = y % cellHeight;
+                    
+                    // Create subtle gaps between phosphors (edges of cells are darker)
+                    bool isEdge = (subX == 0) || (subY == 0 && cellHeight > 1);
+                    byte intensity = isEdge ? phosphorDim : phosphorBright;
+                    
+                    // Apply RGB color based on phosphor position - very subtle
+                    // For MOD blend mode: white (0xFFFFFF) = no change, darker = darkens that channel
+                    byte r, g, b;
+                    switch (phosphorIndex)
+                    {
+                        case 0: // Red phosphor - let red through, slightly dim green and blue
+                            r = intensity;
+                            g = (byte)(intensity * 0.95f);
+                            b = (byte)(intensity * 0.95f);
+                            break;
+                        case 1: // Green phosphor - let green through, slightly dim red and blue
+                            r = (byte)(intensity * 0.95f);
+                            g = intensity;
+                            b = (byte)(intensity * 0.95f);
+                            break;
+                        case 2: // Blue phosphor - let blue through, slightly dim red and green
+                        default:
+                            r = (byte)(intensity * 0.95f);
+                            g = (byte)(intensity * 0.95f);
+                            b = intensity;
+                            break;
+                    }
+                    
+                    maskBuffer[y * _width + x] = (0xFFu << 24) | ((uint)r << 16) | ((uint)g << 8) | b;
+                }
+            }
+            
+            unsafe
+            {
+                fixed (uint* pixels = maskBuffer)
+                {
+                    SDL.SDL_Rect fullRect = new SDL.SDL_Rect { x = 0, y = 0, w = _width, h = _height };
+                    SDL.SDL_UpdateTexture(_shadowMaskTexture, ref fullRect, (IntPtr)pixels, _width * sizeof(uint));
                 }
             }
         }
