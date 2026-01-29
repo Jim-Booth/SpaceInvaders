@@ -65,11 +65,15 @@ namespace SpaceInvaders.CABINET
         private readonly CachedSound _explosion = new(Path.Combine(AppPath, "SOUNDS", "explosion.wav"));
         private readonly CachedSound _extendedplay = new(Path.Combine(AppPath, "SOUNDS", "extendedPlay.wav"));
 
-        // SDL2 Color values (RGBA)
-        private static readonly SDL.SDL_Color _greenColor = new() { r = 0x0F, g = 0xDF, b = 0x0F, a = 0xC0 };
-        private static readonly SDL.SDL_Color _whiteColor = new() { r = 0xEF, g = 0xEF, b = 0xFF, a = 0xC0 };
-        private static readonly SDL.SDL_Color _whiteColor2 = new() { r = 0xEF, g = 0xEF, b = 0xFF, a = 0xF0 };
-        private static readonly SDL.SDL_Color _redColor = new() { r = 0xFF, g = 0x00, b = 0x40, a = 0xC0 };
+        // Pre-computed ARGB color values for each color zone
+        private const uint ColorGreen = 0xC00FDF0F;   // ARGB: alpha=0xC0, R=0x0F, G=0xDF, B=0x0F
+        private const uint ColorWhite = 0xC0EFEFFF;   // ARGB: alpha=0xC0, R=0xEF, G=0xEF, B=0xFF
+        private const uint ColorWhite2 = 0xF0EFEFFF;  // ARGB: alpha=0xF0, R=0xEF, G=0xEF, B=0xFF
+        private const uint ColorRed = 0xC0FF0040;     // ARGB: alpha=0xC0, R=0xFF, G=0x00, B=0x40
+        
+        // Pre-computed color lookup table indexed by unscaled Y coordinate (0-255)
+        // This eliminates per-pixel color zone calculations
+        private uint[] _colorLookup = null!;
 
         public Cabinet()
         {
@@ -78,10 +82,33 @@ namespace SpaceInvaders.CABINET
             TitleBarHeight = OverlayRenderer.GetTitleBarHeight(_screenMultiplier);
             _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
             _renderBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
+            BuildColorLookupTable();
             InitializeSDL();
             LoadBackgroundTexture();
             _crtEffects = new CrtEffects(_renderer, ScreenWidth, ScreenHeight, _screenMultiplier);
             _overlay = new OverlayRenderer(_renderer);
+        }
+        
+        /// <summary>
+        /// Builds a pre-computed color lookup table for each Y coordinate.
+        /// This eliminates per-pixel color zone boundary checks during rendering.
+        /// </summary>
+        private void BuildColorLookupTable()
+        {
+            _colorLookup = new uint[ScreenHeight];
+            for (int y = 0; y < ScreenHeight; y++)
+            {
+                // Color zones based on original arcade overlay (unscaled coordinates)
+                // Y=0 is top of screen (UFO area), Y=255 is bottom (player/shields)
+                if (y > 195 && y < 239)
+                    _colorLookup[y] = ColorGreen;      // Player and shields area
+                else if (y > 240 && y < 256)
+                    _colorLookup[y] = ColorWhite2;     // Score area (handled specially for X < 127)
+                else if (y > 32 && y < 64)
+                    _colorLookup[y] = ColorRed;        // UFO area
+                else
+                    _colorLookup[y] = ColorWhite;      // Default play area
+            }
         }
 
         /// <summary>
@@ -165,6 +192,8 @@ namespace SpaceInvaders.CABINET
                 _pixelBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
                 _renderBuffer = new uint[(ScreenWidth * _screenMultiplier) * (ScreenHeight * _screenMultiplier)];
                 _frameReady = false;
+                
+                // Color lookup table doesn't need rebuilding - it's based on unscaled coordinates
                 
                 // Recreate texture at new scaled size
                 _texture = SDL.SDL_CreateTexture(
@@ -449,6 +478,7 @@ namespace SpaceInvaders.CABINET
 
         /// <summary>
         /// Background thread that prepares frame data from video memory.
+        /// Optimized with pre-computed color lookup and Span-based operations.
         /// </summary>
         public void DisplayThread()
         {
@@ -478,6 +508,15 @@ namespace SpaceInvaders.CABINET
                     
                     try
                     {
+                        int multiplier = _screenMultiplier;
+                        int scaledWidth = ScreenWidth * multiplier;
+                        int scaledHeight = ScreenHeight * multiplier;
+                        
+                        // Use Span for faster array access
+                        Span<uint> pixelSpan = _pixelBuffer.AsSpan();
+                        ReadOnlySpan<byte> videoSpan = _cpu.Video.AsSpan();
+                        ReadOnlySpan<uint> colorLookup = _colorLookup.AsSpan();
+                        
                         // Apply phosphor persistence (fade previous frame) or clear
                         if (_crtEffects != null && _crtEffects.Enabled)
                         {
@@ -485,37 +524,59 @@ namespace SpaceInvaders.CABINET
                         }
                         else
                         {
-                            // Clear pixel buffer (fully transparent - alpha = 0)
-                            Array.Clear(_pixelBuffer, 0, _pixelBuffer.Length);
+                            // Clear pixel buffer using Span.Clear (faster than Array.Clear)
+                            pixelSpan.Clear();
                         }
 
                         int ptr = 0;
-                        int scaledWidth = ScreenWidth * _screenMultiplier;
-                        int scaledHeight = ScreenHeight * _screenMultiplier;
-                        for (int x = 0; x < scaledWidth; x += _screenMultiplier)
+                        
+                        // Process video memory column by column
+                        // Original display is 256x224, rotated 90° CCW to 224x256
+                        // Video memory is organized as columns of 8 pixels per byte
+                        // Byte 0 contains Y pixels 0-7 (bottom of screen), bit 0 = Y0
+                        for (int col = 0; col < ScreenWidth; col++)
                         {
-                            for (int y = scaledHeight; y > 0; y -= 8 * _screenMultiplier)
+                            int scaledX = col * multiplier;
+                            
+                            // Each column has 32 bytes (256 pixels / 8 bits per byte)
+                            for (int byteRow = 0; byteRow < 32; byteRow++)
                             {
-                                byte value = _cpu.Video[ptr++];
-                                for (int b = 0; b < 8; b++)
+                                byte value = videoSpan[ptr++];
+                                if (value == 0) continue; // Skip empty bytes (common case)
+                                
+                                // Process 8 bits in this byte
+                                // Bit 0 is lowest Y in this group, bit 7 is highest
+                                for (int bit = 0; bit < 8; bit++)
                                 {
-                                    if ((value & (1 << b)) != 0)
+                                    if ((value & (1 << bit)) == 0) continue;
+                                    
+                                    // Calculate unscaled Y coordinate
+                                    // byteRow 0 = Y 0-7, byteRow 1 = Y 8-15, etc.
+                                    // But screen Y=0 is at TOP, and video memory starts at BOTTOM
+                                    // So we need to flip: screenY = 255 - videoY
+                                    int videoY = byteRow * 8 + bit;
+                                    int unscaledY = (ScreenHeight - 1) - videoY;
+                                    if (unscaledY < 0 || unscaledY >= ScreenHeight) continue;
+                                    
+                                    // Look up color from pre-computed table
+                                    // Handle special case: score area (Y > 240) with X < 127 is green
+                                    uint colorValue;
+                                    if (unscaledY > 240 && col < 127)
+                                        colorValue = ColorGreen;
+                                    else
+                                        colorValue = colorLookup[unscaledY];
+                                    
+                                    // Calculate scaled pixel position
+                                    int scaledY = unscaledY * multiplier;
+                                    
+                                    // Write scaled pixel block using optimized row fills
+                                    for (int dy = 0; dy < multiplier; dy++)
                                     {
-                                        int pixelY = y - (b * _screenMultiplier);
-                                        uint colorValue = GetColorValue(x, y);
-                                        int bufferIndex = pixelY * scaledWidth + x;
-                                        if (bufferIndex >= 0 && bufferIndex < _pixelBuffer.Length)
+                                        int rowStart = (scaledY + dy) * scaledWidth + scaledX;
+                                        if (rowStart >= 0 && rowStart + multiplier <= pixelSpan.Length)
                                         {
-                                            for (int dy = 0; dy < _screenMultiplier; dy++)
-                                            {
-                                                if (pixelY + dy < scaledHeight)
-                                                {
-                                                    for (int dx = 0; dx < _screenMultiplier; dx++)
-                                                    {
-                                                        _pixelBuffer[bufferIndex + (dy * scaledWidth) + dx] = colorValue;
-                                                    }
-                                                }
-                                            }
+                                            // Use Span.Fill for each row of the scaled pixel
+                                            pixelSpan.Slice(rowStart, multiplier).Fill(colorValue);
                                         }
                                     }
                                 }
@@ -537,7 +598,8 @@ namespace SpaceInvaders.CABINET
                         // Copy to render buffer for main thread to use
                         if (_renderBuffer != null && _renderBuffer.Length == _pixelBuffer.Length)
                         {
-                            Array.Copy(_pixelBuffer, _renderBuffer, _pixelBuffer.Length);
+                            // Use Span-based copy (faster than Array.Copy for this size)
+                            pixelSpan.CopyTo(_renderBuffer.AsSpan());
                             _frameReady = true;
                         }
                     }
@@ -637,10 +699,10 @@ namespace SpaceInvaders.CABINET
                 // Suppress warning during CRT warmup period (brightness fade-in)
                 if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 40 && _crtEffects.WarmupComplete)
                 {
-                    _overlay.DrawLowFpsWarning(scaledWidth, scaledHeight + titleBarHeight, _screenMultiplier);
+                    _overlay.DrawLowFpsWarning(scaledWidth, _screenMultiplier, titleBarHeight);
                 }
             }
-            _overlay?.DrawFpsCounter(scaledWidth, _screenMultiplier);
+            _overlay?.DrawFpsCounter(scaledWidth, _screenMultiplier, titleBarHeight);
             
             // Draw DIP switch and display settings overlay if enabled
             bool crtEnabled = _crtEffects?.Enabled ?? false;
@@ -653,27 +715,8 @@ namespace SpaceInvaders.CABINET
             SDL.SDL_RenderPresent(_renderer);
         }
 
-        /// <summary>
-        /// Returns the ARGB color value for a screen position based on color zones.
-        /// </summary>
-        private uint GetColorValue(int screenPos_X, int screenPos_Y)
-        {
-            // Convert SDL_Color to ARGB8888 format (0xAARRGGBB)
-            // Base values are for 1x resolution, scaled by _screenMultiplier
-            SDL.SDL_Color color;
-            if (screenPos_Y < 239 * _screenMultiplier && screenPos_Y > 195 * _screenMultiplier)
-                color = _greenColor;
-            else if (screenPos_Y < 256 * _screenMultiplier && screenPos_Y > 240 * _screenMultiplier && screenPos_X > 0 && screenPos_X < 127 * _screenMultiplier)
-                color = _greenColor;
-            else if (screenPos_Y < 256 * _screenMultiplier && screenPos_Y > 240 * _screenMultiplier)
-                color = _whiteColor2;
-            else if (screenPos_Y < 64 * _screenMultiplier && screenPos_Y > 32 * _screenMultiplier)
-                color = _redColor;
-            else
-                color = _whiteColor;
-            
-            return ((uint)color.a << 24) | ((uint)color.r << 16) | ((uint)color.g << 8) | color.b;
-        }
+        // GetColorValue method removed - replaced by pre-computed _colorLookup table
+        // Color lookup is now O(1) array access instead of multiple conditional branches
 
         /// <summary>
         /// Handles keyboard key press events for game controls and settings.

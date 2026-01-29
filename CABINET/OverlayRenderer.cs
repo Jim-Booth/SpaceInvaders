@@ -175,12 +175,20 @@ namespace SpaceInvaders.CABINET
             };
             SDL.SDL_RenderFillRect(_renderer, ref bgRect);
             
-            // Draw each character in yellow
-            SDL.SDL_SetRenderDrawColor(_renderer, 0xFF, 0xFF, 0x00, 0xFF);
-            for (int i = 0; i < _message.Length; i++)
+            // Draw each character in green (standard overlay color)
+            SDL.SDL_SetRenderDrawColor(_renderer, 0x00, 0xFF, 0x00, 0xFF);
+            int charX = startX;
+            foreach (char ch in _message)
             {
-                int charX = startX + i * (charWidth + charSpacing);
-                DrawChar(_message[i], charX, startY, screenMultiplier);
+                if (ch == ' ')
+                {
+                    charX += 3 * screenMultiplier; // Narrower space between words
+                }
+                else
+                {
+                    DrawChar(ch, charX, startY, screenMultiplier);
+                    charX += charWidth + charSpacing;
+                }
             }
             
             return true;
@@ -189,7 +197,7 @@ namespace SpaceInvaders.CABINET
         /// <summary>
         /// Draws the FPS counter in the top-right corner if enabled.
         /// </summary>
-        public void DrawFpsCounter(int screenWidth, int screenMultiplier)
+        public void DrawFpsCounter(int screenWidth, int screenMultiplier, int titleBarHeight)
         {
             if (!_fpsDisplayEnabled) return;
             
@@ -202,10 +210,10 @@ namespace SpaceInvaders.CABINET
             int charSpacing = 1 * screenMultiplier;
             int totalWidth = fpsText.Length * (charWidth + charSpacing) - charSpacing;
             
-            // Position in top-right corner with padding
+            // Position in top-right corner with padding (below title bar)
             int padding = 5 * screenMultiplier;
             int startX = screenWidth - totalWidth - padding;
-            int startY = padding;
+            int startY = titleBarHeight + padding;
             
             // Draw semi-transparent background box
             SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
@@ -221,10 +229,18 @@ namespace SpaceInvaders.CABINET
             
             // Draw FPS text in green
             SDL.SDL_SetRenderDrawColor(_renderer, 0x00, 0xFF, 0x00, 0xFF);
-            for (int i = 0; i < fpsText.Length; i++)
+            int charX = startX;
+            foreach (char ch in fpsText)
             {
-                int charX = startX + i * (charWidth + charSpacing);
-                DrawChar(fpsText[i], charX, startY, screenMultiplier);
+                if (ch == ' ')
+                {
+                    charX += 3 * screenMultiplier; // Narrower space between words
+                }
+                else
+                {
+                    DrawChar(ch, charX, startY, screenMultiplier);
+                    charX += charWidth + charSpacing;
+                }
             }
         }
 
@@ -232,7 +248,7 @@ namespace SpaceInvaders.CABINET
         /// Draws a low FPS warning message at the top of the screen.
         /// Displays continuously while FPS is low.
         /// </summary>
-        public void DrawLowFpsWarning(int screenWidth, int screenHeight, int screenMultiplier)
+        public void DrawLowFpsWarning(int screenWidth, int screenMultiplier, int titleBarHeight)
         {
             string warningText = "low fps! press r to disable crt";
             
@@ -242,9 +258,9 @@ namespace SpaceInvaders.CABINET
             int charSpacing = 1 * screenMultiplier;
             int totalWidth = warningText.Length * (charWidth + charSpacing) - charSpacing;
             
-            // Position at top center
+            // Position at top center (below title bar)
             int startX = (screenWidth - totalWidth) / 2;
-            int startY = 20 * screenMultiplier;
+            int startY = titleBarHeight + 10 * screenMultiplier;
             
             // Draw semi-transparent red background box
             SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
@@ -258,12 +274,20 @@ namespace SpaceInvaders.CABINET
             };
             SDL.SDL_RenderFillRect(_renderer, ref bgRect);
             
-            // Draw warning text in bright red/orange
-            SDL.SDL_SetRenderDrawColor(_renderer, 0xFF, 0x66, 0x00, 0xFF);
-            for (int i = 0; i < warningText.Length; i++)
+            // Draw warning text in red
+            SDL.SDL_SetRenderDrawColor(_renderer, 0xFF, 0x40, 0x40, 0xFF);
+            int charX = startX;
+            foreach (char ch in warningText)
             {
-                int charX = startX + i * (charWidth + charSpacing);
-                DrawChar(warningText[i], charX, startY, screenMultiplier);
+                if (ch == ' ')
+                {
+                    charX += 3 * screenMultiplier; // Narrower space between words
+                }
+                else
+                {
+                    DrawChar(ch, charX, startY, screenMultiplier);
+                    charX += charWidth + charSpacing;
+                }
             }
         }
         
@@ -293,7 +317,7 @@ namespace SpaceInvaders.CABINET
             int charWidth = 5 * screenMultiplier;
             int charHeight = 7 * screenMultiplier;
             int charSpacing = 1 * screenMultiplier;
-            int lineSpacing = 3 * screenMultiplier;
+            int lineSpacing = 2 * screenMultiplier;
             
             // Find the widest line
             int maxWidth = 0;
@@ -306,10 +330,9 @@ namespace SpaceInvaders.CABINET
             // Calculate total height
             int totalHeight = lines.Length * charHeight + (lines.Length - 1) * lineSpacing;
             
-            // Position at bottom-left corner with padding
-            int padding = 10 * screenMultiplier;
-            int startX = padding;
-            int startY = screenHeight - totalHeight - padding;
+            // Center the overlay on screen
+            int startX = (screenWidth - maxWidth) / 2;
+            int startY = (screenHeight - totalHeight) / 2;
             
             // Draw semi-transparent background box
             SDL.SDL_SetRenderDrawBlendMode(_renderer, SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND);
@@ -331,17 +354,25 @@ namespace SpaceInvaders.CABINET
                 
                 int lineY = startY + lineIndex * (charHeight + lineSpacing);
                 
-                // Title lines in cyan, values in yellow
+                // Title lines in cyan, values in green
                 bool isTitle = line == "dip switches" || line == "display";
                 if (isTitle)
                     SDL.SDL_SetRenderDrawColor(_renderer, 0x00, 0xFF, 0xFF, 0xFF); // Cyan for titles
                 else
-                    SDL.SDL_SetRenderDrawColor(_renderer, 0xFF, 0xFF, 0x00, 0xFF); // Yellow for values
+                    SDL.SDL_SetRenderDrawColor(_renderer, 0x00, 0xFF, 0x00, 0xFF); // Green for values
                 
-                for (int i = 0; i < line.Length; i++)
+                int charX = startX;
+                foreach (char ch in line)
                 {
-                    int charX = startX + i * (charWidth + charSpacing);
-                    DrawChar(line[i], charX, lineY, screenMultiplier);
+                    if (ch == ' ')
+                    {
+                        charX += 3 * screenMultiplier; // Narrower space between words
+                    }
+                    else
+                    {
+                        DrawChar(ch, charX, lineY, screenMultiplier);
+                        charX += charWidth + charSpacing;
+                    }
                 }
             }
         }
@@ -586,25 +617,27 @@ namespace SpaceInvaders.CABINET
             string[] lines = [
                 "game controls",
                 "  c-coin  1-1p  2-2p",
-                "  arrows-move  space-fire",
-                "  a/d-p2 move  w-p2 fire",
+                "  p1 arrows-move  space-fire",
+                "  p2 a/d-move  w-fire",
                 "  p-pause  t-tilt  esc-quit",
                 "",
                 "display controls",
-                "  r-crt  s-sound  b-background",
-                "  f-fps  [ ]-scale",
+                "  r-crt ",
+                "  s-sound",
+                "  b-background",
+                "  f-fps",
+                "  []-scale",
                 "",
                 "function keys",
-                "  f1-lives  f2-bonus  f3-coininfo",
-                "  f4-fps warning  f5-settings",
-                "  h-help"
+                "  f1-lives ","  f2-bonus","  f3-coininfo",
+                "  f4-fps warning","  f5-settings"
             ];
             
             // Character dimensions (scaled)
             int charWidth = 5 * screenMultiplier;
             int charHeight = 7 * screenMultiplier;
             int charSpacing = 1 * screenMultiplier;
-            int lineSpacing = 3 * screenMultiplier;
+            int lineSpacing = 2 * screenMultiplier;
             
             // Find the widest line
             int maxWidth = 0;
@@ -648,10 +681,18 @@ namespace SpaceInvaders.CABINET
                 else
                     SDL.SDL_SetRenderDrawColor(_renderer, 0x00, 0xFF, 0x00, 0xFF); // Green for controls
                 
-                for (int i = 0; i < line.Length; i++)
+                int charX = startX;
+                foreach (char ch in line)
                 {
-                    int charX = startX + i * (charWidth + charSpacing);
-                    DrawChar(line[i], charX, lineY, screenMultiplier);
+                    if (ch == ' ')
+                    {
+                        charX += 3 * screenMultiplier; // Narrower space between words
+                    }
+                    else
+                    {
+                        DrawChar(ch, charX, lineY, screenMultiplier);
+                        charX += charWidth + charSpacing;
+                    }
                 }
             }
         }
@@ -713,6 +754,8 @@ namespace SpaceInvaders.CABINET
                 '-' => [0x00, 0x00, 0x00, 0x1F, 0x00, 0x00, 0x00],
                 '+' => [0x00, 0x04, 0x04, 0x1F, 0x04, 0x04, 0x00],
                 '/' => [0x01, 0x02, 0x02, 0x04, 0x08, 0x08, 0x10],
+                '[' => [0x0E, 0x08, 0x08, 0x08, 0x08, 0x08, 0x0E],
+                ']' => [0x0E, 0x02, 0x02, 0x02, 0x02, 0x02, 0x0E],
                 ' ' => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00],
                 
                 _ => [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
