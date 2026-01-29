@@ -564,10 +564,13 @@ namespace SpaceInvaders.CABINET
                         ReadOnlySpan<byte> videoSpan = _cpu.Video.AsSpan();
                         ReadOnlySpan<uint> colorLookup = _colorLookup.AsSpan();
                         
+                        // Cache CRT enabled state for consistency
+                        bool crtEnabled = _crtEffects?.Enabled ?? false;
+                        
                         // Apply phosphor persistence (fade previous frame) or clear
-                        if (_crtEffects != null && _crtEffects.Enabled)
+                        if (crtEnabled)
                         {
-                            _crtEffects.ApplyPersistence(_pixelBuffer);
+                            _crtEffects!.ApplyPersistence(_pixelBuffer);
                         }
                         else
                         {
@@ -639,15 +642,15 @@ namespace SpaceInvaders.CABINET
                         }
                         
                         // Store current frame for next frame's persistence effect
-                        if (_crtEffects != null && _crtEffects.Enabled)
+                        if (crtEnabled)
                         {
-                            _crtEffects.StorePersistence(_pixelBuffer);
+                            _crtEffects!.StorePersistence(_pixelBuffer);
                         }
                         
                         // Apply CRT post-processing effects
-                        if (_crtEffects != null && _crtEffects.Enabled)
+                        if (crtEnabled)
                         {
-                            _crtEffects.ApplyPostProcessing(_pixelBuffer, scaledWidth, scaledHeight);
+                            _crtEffects!.ApplyPostProcessing(_pixelBuffer, scaledWidth, scaledHeight);
                         }
 
                         // Copy to render buffer for main thread to use
@@ -720,10 +723,16 @@ namespace SpaceInvaders.CABINET
             }
             
             // Get screen bounce offset for CRT power-on effect
-            // Original CRT is rotated 90�, so deflection coil bounce is horizontal
-            int bounceOffset = _crtEffects?.GetScreenBounceOffset(_screenMultiplier) ?? 0;
+            // Original CRT is rotated 90°, so deflection coil bounce is horizontal
+            int bounceOffset = crtEnabled ? _crtEffects!.GetScreenBounceOffset(_screenMultiplier) : 0;
             
-            // Render game texture on top (with alpha blending - transparent pixels show background)
+            // Render game texture on top
+            // Use alpha blending when CRT is on (transparent pixels show background)
+            // Use no blending when CRT is off (fully opaque, faster rendering)
+            SDL.SDL_SetTextureBlendMode(_texture, crtEnabled ? 
+                SDL.SDL_BlendMode.SDL_BLENDMODE_BLEND : 
+                SDL.SDL_BlendMode.SDL_BLENDMODE_NONE);
+            
             // Apply horizontal bounce offset during CRT warmup/settle
             SDL.SDL_Rect textureDestRect = new SDL.SDL_Rect 
             { 
@@ -734,12 +743,12 @@ namespace SpaceInvaders.CABINET
             };
             SDL.SDL_RenderCopy(_renderer, _texture, IntPtr.Zero, ref textureDestRect);
             
-            if (_crtEffects != null && _crtEffects.Enabled)
+            if (crtEnabled)
             {
                 // Set viewport to offset CRT overlays by title bar height
                 SDL.SDL_Rect viewport = new SDL.SDL_Rect { x = 0, y = titleBarHeight, w = scaledWidth, h = scaledHeight };
                 SDL.SDL_RenderSetViewport(_renderer, ref viewport);
-                _crtEffects.RenderOverlays(_renderer, scaledWidth, scaledHeight, _screenMultiplier);
+                _crtEffects!.RenderOverlays(_renderer, scaledWidth, scaledHeight, _screenMultiplier);
                 
                 // Reset viewport to full window
                 SDL.SDL_Rect fullViewport = new SDL.SDL_Rect { x = 0, y = 0, w = scaledWidth, h = scaledHeight + titleBarHeight };
@@ -751,11 +760,11 @@ namespace SpaceInvaders.CABINET
             
             // Update and draw FPS counter, check for low FPS warning
             _overlay?.UpdateFps();
-            if (_overlay != null && _overlay.FpsWarningEnabled && _crtEffects != null && _crtEffects.Enabled)
+            if (_overlay != null && _overlay.FpsWarningEnabled && crtEnabled)
             {
                 // Draw warning continuously while FPS is below 40 and CRT effects are enabled
                 // Suppress warning during CRT warmup period (brightness fade-in)
-                if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 40 && _crtEffects.WarmupComplete)
+                if (_overlay.CurrentFps > 0 && _overlay.CurrentFps < 40 && _crtEffects!.WarmupComplete)
                 {
                     _overlay.DrawLowFpsWarning(scaledWidth, _screenMultiplier, titleBarHeight);
                 }
