@@ -73,10 +73,10 @@ namespace SpaceInvaders.CABINET
         // Pre-computed ARGB color values for each color zone
         // Colors are adjusted for authentic CRT phosphor output at ~9300K color temperature
         // CRT "white" has a characteristic blue tint compared to modern D65 (6500K) displays
-        private const uint ColorGreen = 0xC00FDF1F;   // ARGB: alpha=0xC0, R=0x0F, G=0xDF, B=0x1F (slight blue shift)
-        private const uint ColorWhite = 0xC0E8ECFF;   // ARGB: alpha=0xC0, R=0xE8, G=0xEC, B=0xFF (9300K blue tint)
-        private const uint ColorWhite2 = 0xF0E8ECFF;  // ARGB: alpha=0xF0, R=0xE8, G=0xEC, B=0xFF (9300K blue tint)
-        private const uint ColorRed = 0xC0FF1050;     // ARGB: alpha=0xC0, R=0xFF, G=0x10, B=0x50 (slight blue/purple shift)
+        private const uint ColorGreen = 0x800FDF1F;   // ARGB: alpha=0x80, R=0x0F, G=0xDF, B=0x1F (slight blue shift)
+        private const uint ColorWhite = 0x80E8ECFF;   // ARGB: alpha=0x80, R=0xE8, G=0xEC, B=0xFF (9300K blue tint)
+        private const uint ColorWhite2 = 0x90E8ECFF;  // ARGB: alpha=0x90, R=0xE8, G=0xEC, B=0xFF (9300K blue tint)
+        private const uint ColorRed = 0x80FF1050;     // ARGB: alpha=0x80, R=0xFF, G=0x10, B=0x50 (slight blue/purple shift)
         
         // Pre-computed color lookup table indexed by unscaled Y coordinate (0-255)
         // This eliminates per-pixel color zone calculations
