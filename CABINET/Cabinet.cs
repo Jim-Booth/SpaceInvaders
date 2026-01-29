@@ -759,6 +759,10 @@ namespace SpaceInvaders.CABINET
             
             if (key == SDL.SDL_Keycode.SDLK_b)
             {
+                // Background brightness only adjustable when CRT effects are enabled
+                if (_crtEffects == null || !_crtEffects.Enabled)
+                    return;
+                    
                 byte brightness = _settings.DecrementBackgroundBrightness();
                 _settings.Save();
                 if (brightness == 0)
