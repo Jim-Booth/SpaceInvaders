@@ -105,7 +105,7 @@ namespace SpaceInvaders.CABINET
             for (int y = 0; y < ScreenHeight; y++)
             {
                 // Color zones matching original GetColorValue logic (unscaled coordinates)
-                if (y > 195 && y < 239)
+                if (y > 195 && y < 242)
                     _colorLookup[y] = ColorGreen;      // Player and shields area
                 else if (y > 240)
                     _colorLookup[y] = ColorWhite2;     // Bottom lives area (green handled separately for X < 127)
