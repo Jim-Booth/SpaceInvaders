@@ -34,6 +34,9 @@ namespace SpaceInvaders.CABINET
         // High score persistence (not a DIP switch - modern convenience feature)
         public int HighScore { get; set; } = 0;
         
+        // Background brightness (255=full, 0=off, decrements by 32 with B key)
+        public byte BackgroundBrightness { get; set; } = 255;
+        
         /// <summary>
         /// Gets the actual number of lives based on DIP switch setting.
         /// </summary>
@@ -80,6 +83,21 @@ namespace SpaceInvaders.CABINET
         public void ToggleCoinInfo()
         {
             CoinInfoHidden = !CoinInfoHidden;
+        }
+        
+        /// <summary>
+        /// Decrements background brightness by 32 (8 steps from 255 to 0).
+        /// Returns the new brightness value.
+        /// </summary>
+        public byte DecrementBackgroundBrightness()
+        {
+            if (BackgroundBrightness >= 32)
+                BackgroundBrightness -= 32;
+            else if (BackgroundBrightness > 0)
+                BackgroundBrightness = 0;
+            else
+                BackgroundBrightness = 255; // Wrap around to full brightness
+            return BackgroundBrightness;
         }
         
         /// <summary>

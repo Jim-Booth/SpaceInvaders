@@ -295,11 +295,13 @@ namespace SpaceInvaders.CABINET
         /// Draws the settings overlay showing DIP switches and display controls.
         /// </summary>
         public void DrawDipSwitchOverlay(int screenWidth, int screenHeight, int screenMultiplier, 
-            GameSettings settings, bool crtEnabled, bool soundEnabled, bool backgroundEnabled)
+            GameSettings settings, bool crtEnabled, bool soundEnabled)
         {
             if (!_dipSwitchOverlayEnabled) return;
             
             // Build the display lines
+            string backgroundStatus = settings.BackgroundBrightness == 0 ? "off" : 
+                (settings.BackgroundBrightness == 255 ? "on" : $"{settings.BackgroundBrightness}");
             string[] lines = [
                 "dip switches",
                 $"  lives: {settings.ActualLives}",
@@ -310,7 +312,7 @@ namespace SpaceInvaders.CABINET
                 $"  scale: {screenMultiplier}x",
                 $"  crt: {(crtEnabled ? "on" : "off")}",
                 $"  sound: {(soundEnabled ? "on" : "off")}",
-                $"  background: {(backgroundEnabled ? "on" : "off")}"
+                $"  background: {backgroundStatus}"
             ];
             
             // Character dimensions (scaled)
@@ -624,7 +626,7 @@ namespace SpaceInvaders.CABINET
                 "display controls",
                 "  r-crt ",
                 "  s-sound",
-                "  b-background",
+                "  b-bg brightness",
                 "  f-fps",
                 "  []-scale",
                 "",

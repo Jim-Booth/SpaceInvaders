@@ -65,7 +65,7 @@ dotnet run
 | Key | Action |
 |-----|--------|
 | **[** / **]** | Decrease / Increase scale (default: x3) |
-| **B** | Toggle background texture (default: on) |
+| **B** | Decrease background brightness (8 steps, then off) |
 | **R** | Toggle CRT effects (default: on) |
 | **S** | Toggle sound on/off (default: on) |
 | **F** | Toggle FPS counter (default: off) |
@@ -121,7 +121,7 @@ Place WAV sound files in the `SOUNDS/` directory:
 
 ## Background Texture
 
-Place a `Cabinet.bmp` file in the application directory (same folder as the executable) to display a background image behind the game. Press **B** to toggle visibility at runtime.
+Place a `Cabinet.bmp` file in the application directory (same folder as the executable) to display a background image behind the game. The background is only visible when CRT effects are enabled. Press **B** to decrease brightness through 8 levels before turning off (wraps back to full brightness). Background brightness is saved to `settings.json`.
 
 ## Project Structure
 

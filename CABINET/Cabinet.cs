@@ -49,7 +49,6 @@ namespace SpaceInvaders.CABINET
         private IntPtr _renderer;
         private IntPtr _texture;
         private IntPtr _backgroundTexture;
-        private bool _backgroundEnabled = true;
         private bool _soundEnabled = true;
         private bool _gamePaused = false;
         private uint[] _pixelBuffer;
@@ -536,7 +535,7 @@ namespace SpaceInvaders.CABINET
                         int ptr = 0;
                         
                         // Process video memory column by column
-                        // Original display is 256x224, rotated 90° CCW to 224x256
+                        // Original display is 256x224, rotated 90ï¿½ CCW to 224x256
                         // Video memory is organized as columns of 8 pixels per byte
                         // Byte 0 contains Y pixels 0-7 (bottom of screen), bit 0 = Y0
                         for (int col = 0; col < ScreenWidth; col++)
@@ -668,14 +667,17 @@ namespace SpaceInvaders.CABINET
                 h = scaledHeight 
             };
             
-            // Render background texture if enabled (offset by title bar)
-            if (_backgroundEnabled && _backgroundTexture != IntPtr.Zero)
+            // Render background texture if enabled (only when CRT effects are on and brightness > 0)
+            bool crtEnabled = _crtEffects?.Enabled ?? false;
+            if (crtEnabled && _settings.BackgroundBrightness > 0 && _backgroundTexture != IntPtr.Zero)
             {
+                // Apply brightness to background texture
+                SDL.SDL_SetTextureColorMod(_backgroundTexture, _settings.BackgroundBrightness, _settings.BackgroundBrightness, _settings.BackgroundBrightness);
                 SDL.SDL_RenderCopy(_renderer, _backgroundTexture, IntPtr.Zero, ref gameDestRect);
             }
             
             // Get screen bounce offset for CRT power-on effect
-            // Original CRT is rotated 90°, so deflection coil bounce is horizontal
+            // Original CRT is rotated 90ï¿½, so deflection coil bounce is horizontal
             int bounceOffset = _crtEffects?.GetScreenBounceOffset(_screenMultiplier) ?? 0;
             
             // Render game texture on top (with alpha blending - transparent pixels show background)
@@ -718,9 +720,8 @@ namespace SpaceInvaders.CABINET
             _overlay?.DrawFpsCounter(scaledWidth, _screenMultiplier, titleBarHeight);
             
             // Draw DIP switch and display settings overlay if enabled
-            bool crtEnabled = _crtEffects?.Enabled ?? false;
             _overlay?.DrawDipSwitchOverlay(scaledWidth, scaledHeight + titleBarHeight, _screenMultiplier, _settings, 
-                crtEnabled, _soundEnabled, _backgroundEnabled);
+                crtEnabled, _soundEnabled);
             
             // Draw controls help overlay if enabled
             _overlay?.DrawControlsOverlay(scaledWidth, scaledHeight + titleBarHeight, _screenMultiplier);
@@ -758,7 +759,12 @@ namespace SpaceInvaders.CABINET
             
             if (key == SDL.SDL_Keycode.SDLK_b)
             {
-                _backgroundEnabled = !_backgroundEnabled;
+                byte brightness = _settings.DecrementBackgroundBrightness();
+                _settings.Save();
+                if (brightness == 0)
+                    _overlay?.ShowMessage("background:off", TimeSpan.FromSeconds(2));
+                else
+                    _overlay?.ShowMessage($"background:{brightness}", TimeSpan.FromSeconds(2));
                 return;
             }
             
