@@ -487,13 +487,13 @@ namespace SpaceInvaders.CABINET
                         int scaledWidth = ScreenWidth * multiplier;
                         int scaledHeight = ScreenHeight * multiplier;
                         
+                        // Cache CRT enabled state for consistency
+                        bool crtEnabled = _crtEffects?.Enabled ?? false;
+                        
                         // Use Span for faster array access
                         Span<uint> pixelSpan = _pixelBuffer.AsSpan();
                         ReadOnlySpan<byte> videoSpan = _cpu.Video.AsSpan();
                         ReadOnlySpan<uint> colorLookup = _colorLookup.AsSpan();
-                        
-                        // Cache CRT enabled state for consistency
-                        bool crtEnabled = _crtEffects?.Enabled ?? false;
                         
                         // Apply phosphor persistence (fade previous frame) or clear
                         if (crtEnabled)
@@ -502,8 +502,9 @@ namespace SpaceInvaders.CABINET
                         }
                         else
                         {
-                            // Clear pixel buffer using Span.Clear (faster than Array.Clear)
-                            pixelSpan.Clear();
+                            // Clear pixel buffer using same memory access pattern as ApplyPersistence
+                            // to maintain consistent CPU frequency and cache behavior
+                            _crtEffects!.ClearPixelBuffer(_pixelBuffer);
                         }
 
                         int ptr = 0;

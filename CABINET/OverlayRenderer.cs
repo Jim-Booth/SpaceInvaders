@@ -9,6 +9,7 @@
 // Copyright:   (c) 2024-2026 James Booth
 // ============================================================================
 
+using System.Diagnostics;
 using SDL2;
 
 namespace SpaceInvaders.CABINET
@@ -24,7 +25,7 @@ namespace SpaceInvaders.CABINET
         private bool _fpsDisplayEnabled = false;
         private bool _fpsWarningEnabled = true;
         private int _frameCount = 0;
-        private DateTime _lastFpsUpdate = DateTime.Now;
+        private readonly Stopwatch _fpsStopwatch = Stopwatch.StartNew();
         private double _currentFps = 0.0;
         
         // Overlay message state
@@ -129,13 +130,12 @@ namespace SpaceInvaders.CABINET
         public void UpdateFps()
         {
             _frameCount++;
-            var now = DateTime.Now;
-            var elapsed = (now - _lastFpsUpdate).TotalSeconds;
-            if (elapsed >= 2) // Update FPS every 0.5 seconds
+            double elapsed = _fpsStopwatch.Elapsed.TotalSeconds;
+            if (elapsed >= 0.5) // Update FPS every 0.5 seconds
             {
                 _currentFps = _frameCount / elapsed;
                 _frameCount = 0;
-                _lastFpsUpdate = now;
+                _fpsStopwatch.Restart();
             }
         }
 

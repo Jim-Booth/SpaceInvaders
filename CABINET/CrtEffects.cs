@@ -193,6 +193,24 @@ namespace SpaceInvaders.CABINET
         }
 
         /// <summary>
+        /// Clears the pixel buffer with a memory access pattern similar to ApplyPersistence.
+        /// This maintains consistent CPU cache/prefetch behavior regardless of CRT state,
+        /// avoiding performance drops when switching CRT effects off.
+        /// </summary>
+        public void ClearPixelBuffer(uint[] pixelBuffer)
+        {
+            // Use a loop that matches ApplyPersistence memory access pattern
+            // This keeps CPU frequency and cache behavior consistent
+            for (int i = 0; i < _persistenceBuffer.Length && i < pixelBuffer.Length; i++)
+            {
+                // Read from persistence buffer (maintains read pattern)
+                // but always write zero to pixel buffer
+                _ = _persistenceBuffer[i];
+                pixelBuffer[i] = 0;
+            }
+        }
+
+        /// <summary>
         /// Applies post-processing effects: flicker, jitter, warmup, and prepares bloom for GPU.
         /// Bloom and blur are now GPU-accelerated via SDL texture blending.
         /// </summary>
