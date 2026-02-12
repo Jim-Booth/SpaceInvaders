@@ -21,6 +21,11 @@ html, body {
     color: #0f0;
 }
 
+.loading .invader-icon {
+    color: #0f0;
+    margin-bottom: 1.5rem;
+}
+
 .loading h1 {
     font-size: 2rem;
     margin-bottom: 1rem;
