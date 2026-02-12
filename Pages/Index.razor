@@ -166,10 +166,11 @@
         _emulator?.KeyUp(e.Key);
     }
     
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
         _cts?.Cancel();
         _gameLoop?.Dispose();
         _cts?.Dispose();
+        return ValueTask.CompletedTask;
     }
 }
