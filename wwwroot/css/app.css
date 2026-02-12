@@ -203,6 +203,7 @@ html, body {
         height: auto;
         min-height: 100vh;
         padding: 10px;
+        box-sizing: border-box;
     }
     
     #gameCanvas {
@@ -229,75 +230,98 @@ html, body {
     }
 }
 
-/* Mobile phones */
-@media (max-width: 480px) {
+/* Mobile phones - use viewport height to ensure fit */
+@media (max-width: 480px), (max-height: 900px) and (max-width: 480px) {
+    #app {
+        padding: 5px;
+        justify-content: flex-start;
+        padding-top: 10px;
+    }
+    
     #gameCanvas {
-        width: 95vw;
-        height: calc(95vw * 1.143);
+        /* Scale based on viewport height to ensure everything fits */
+        width: min(95vw, 60vh);
+        height: min(calc(95vw * 1.143), 68vh);
     }
     
     .cabinet-panel {
-        width: 95vw;
-        padding: 8px 10px;
-        gap: 8px;
+        width: min(95vw, 60vh);
+        padding: 6px 8px;
+        gap: 6px;
+        margin-top: 8px;
     }
     
     .top-row {
-        gap: 15px;
+        gap: 12px;
     }
     
     .round-button .btn {
-        width: 36px;
-        height: 36px;
+        width: 32px;
+        height: 32px;
     }
     
     .round-button .btn .btn-text {
-        font-size: 0.75rem;
+        font-size: 0.65rem;
     }
     
     .round-button span {
-        font-size: 0.5rem;
+        font-size: 0.45rem;
     }
     
     .bottom-row {
-        padding: 0 10px;
-        gap: 10px;
+        padding: 0 8px;
+        gap: 8px;
     }
     
     .player-controls-group {
-        gap: 5px;
-    }
-    
-    .player-title {
-        font-size: 0.6rem;
-    }
-    
-    .player-controls {
-        gap: 6px;
-    }
-    
-    .move-buttons {
         gap: 4px;
     }
     
+    .player-title {
+        font-size: 0.55rem;
+    }
+    
+    .player-controls {
+        gap: 5px;
+    }
+    
+    .move-buttons {
+        gap: 3px;
+    }
+    
     .loading .invader-icon {
-        width: 140px;
+        width: 100px;
     }
     
     .loading h1 {
-        font-size: 1.2rem;
+        font-size: 1rem;
     }
 }
 
-/* Very small phones */
-@media (max-width: 360px) {
+/* Very small phones or landscape mobile */
+@media (max-width: 360px), (max-height: 700px) {
+    #gameCanvas {
+        width: min(98vw, 50vh);
+        height: min(calc(98vw * 1.143), 57vh);
+    }
+    
+    .cabinet-panel {
+        width: min(98vw, 50vh);
+        padding: 5px 6px;
+        gap: 5px;
+    }
+    
     .round-button .btn {
-        width: 30px;
-        height: 30px;
+        width: 28px;
+        height: 28px;
+    }
+    
+    .round-button .btn .btn-text {
+        font-size: 0.55rem;
     }
     
     .top-row {
-        gap: 10px;
+        gap: 8px;
     }
     
     .bottom-row {
@@ -305,6 +329,10 @@ html, body {
     }
     
     .loading .invader-icon {
-        width: 120px;
+        width: 80px;
+    }
+    
+    .loading h1 {
+        font-size: 0.9rem;
     }
 }
