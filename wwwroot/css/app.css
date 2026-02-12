@@ -205,7 +205,7 @@ html, body {
         min-height: 100dvh; /* Dynamic viewport height for mobile */
         padding: 2vw;
         box-sizing: border-box;
-        justify-content: flex-start;
+        justify-content: center;
     }
     
     .game-container {
