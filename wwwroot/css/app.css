@@ -187,3 +187,124 @@ html, body {
     color: #fff;
     margin-left: 10px;
 }
+
+/* ============================================
+   RESPONSIVE / MOBILE STYLES
+   ============================================ */
+
+/* Tablet and smaller desktop */
+@media (max-width: 720px) {
+    html, body {
+        overflow-x: hidden;
+        overflow-y: auto;
+    }
+    
+    #app {
+        height: auto;
+        min-height: 100vh;
+        padding: 10px;
+    }
+    
+    #gameCanvas {
+        width: 90vw;
+        height: calc(90vw * 1.143);
+        max-width: 672px;
+        max-height: 768px;
+    }
+    
+    .cabinet-panel {
+        width: 90vw;
+        max-width: 672px;
+        padding: 10px;
+        gap: 10px;
+    }
+    
+    .loading .invader-icon {
+        width: 180px;
+        height: auto;
+    }
+    
+    .loading h1 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Mobile phones */
+@media (max-width: 480px) {
+    #gameCanvas {
+        width: 95vw;
+        height: calc(95vw * 1.143);
+    }
+    
+    .cabinet-panel {
+        width: 95vw;
+        padding: 8px 10px;
+        gap: 8px;
+    }
+    
+    .top-row {
+        gap: 15px;
+    }
+    
+    .round-button .btn {
+        width: 36px;
+        height: 36px;
+    }
+    
+    .round-button .btn .btn-text {
+        font-size: 0.75rem;
+    }
+    
+    .round-button span {
+        font-size: 0.5rem;
+    }
+    
+    .bottom-row {
+        padding: 0 10px;
+        gap: 10px;
+    }
+    
+    .player-controls-group {
+        gap: 5px;
+    }
+    
+    .player-title {
+        font-size: 0.6rem;
+    }
+    
+    .player-controls {
+        gap: 6px;
+    }
+    
+    .move-buttons {
+        gap: 4px;
+    }
+    
+    .loading .invader-icon {
+        width: 140px;
+    }
+    
+    .loading h1 {
+        font-size: 1.2rem;
+    }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+    .round-button .btn {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .top-row {
+        gap: 10px;
+    }
+    
+    .bottom-row {
+        padding: 0 5px;
+    }
+    
+    .loading .invader-icon {
+        width: 120px;
+    }
+}
