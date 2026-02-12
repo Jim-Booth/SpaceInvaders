@@ -1,4 +1,4 @@
-# Space Invaders - Intel 8080 Emulator - Web
+# Space Invaders - Intel 8080 Emulator
 
 A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and Blazor WebAssembly.
 
