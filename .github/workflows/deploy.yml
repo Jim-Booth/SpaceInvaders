@@ -30,7 +30,7 @@ jobs:
         dotnet-version: '9.0.x'
 
     - name: Publish
-      run: dotnet publish -c Release -o release
+      run: dotnet publish SpaceInvaders.csproj -c Release -o release
 
     - name: Change base href
       run: sed -i 's|<base href="/" />|<base href="/SpaceInvaders/" />|g' release/wwwroot/index.html
