@@ -23,7 +23,7 @@ dotnet build
 dotnet run
 ```
 
-Then open your browser to `https://localhost:5001` or `http://localhost:5000`
+Then open your browser to `https://localhost:5443` or `http://localhost:5000`.
 
 ## Controls
 
