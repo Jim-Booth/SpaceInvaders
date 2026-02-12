@@ -52,16 +52,17 @@ html, body {
    ============================================ */
 
 .cabinet-panel {
-display: flex;
-flex-direction: column;
-width: 672px;
-margin-top: 2px;
-background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
-border: 3px solid #333;
-border-radius: 8px;
-padding: 12px 15px 8px 15px;
-gap: 0;
-box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: 672px;
+    height: 85px;
+    margin-top: 2px;
+    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+    border: 3px solid #333;
+    border-radius: 8px;
+    padding: 0 15px;
+    box-sizing: border-box;
     box-shadow: 
         inset 0 2px 4px rgba(255,255,255,0.1),
         0 4px 8px rgba(0,0,0,0.5);
@@ -96,64 +97,70 @@ box-sizing: border-box;
     color: #888;
 }
 
-/* Top row buttons */
-.top-row {
+/* Panel single-row layout */
+.panel-row {
     display: flex;
+    align-items: center;
     justify-content: center;
-    align-items: flex-start;
-    gap: 20px;
+    width: 100%;
+}
+
+.panel-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.panel-left {
+    flex: 1;
+    justify-content: center;
+    margin-right: auto;
+}
+
+.panel-center {
+    flex: 0 0 auto;
+    margin: 0 30px;
+}
+
+.panel-right {
+    flex: 1;
+    justify-content: center;
+    margin-left: auto;
 }
 
 .p1-start .btn {
     background: linear-gradient(180deg, #ffffff 0%, #cccccc 100%);
-    border: 3px solid #999999;
+    border: 2px solid #999999;
 }
 
 .p2-start .btn {
     background: linear-gradient(180deg, #ffffff 0%, #cccccc 100%);
-    border: 3px solid #999999;
+    border: 2px solid #999999;
 }
 
-.coin .btn {
-    background: linear-gradient(180deg, #ffd700 0%, #b8860b 100%);
-    border: 2px solid #8b6914;
+/* Credit hint text below the panel */
+.credit-hint {
+    margin-top: 6px;
+    margin-bottom: 0;
+    font-size: 0.7rem;
+    color: #555;
+    text-align: center;
+    letter-spacing: 1px;
+    line-height: 1.6;
 }
 
-.coin span {
-    color: #888;
-}
-
-.coin span em {
+.credit-key {
     color: #ffd700;
     text-shadow: 0 0 5px #ffd700;
-    font-style: normal;
 }
 
-/* Bottom row: Player controls */
-.bottom-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 0 20px;
-}
-
-.player-controls-group {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
-}
-
-.player-title {
-    font-size: 0.75rem;
-    font-weight: bold;
-    color: #888;
+.controls-hint {
+    margin-top: -12px;
+    font-size: 0.7rem;
+    color: #555;
+    text-align: center;
     letter-spacing: 1px;
-}
-
-.player-controls {
-    display: flex;
-    align-items: flex-start;
-    gap: 5px;
+    line-height: 1.6;
 }
 
 .move-buttons {
@@ -240,12 +247,8 @@ box-sizing: border-box;
     .cabinet-panel {
         width: 96vw;
         max-width: 672px;
-        padding: 2vw;
-        gap: 2vw;
-    }
-    
-    .top-row {
-        gap: 5vw;
+        height: 85px;
+        padding: 0 2vw;
     }
     
     .round-button .btn {
@@ -263,20 +266,20 @@ box-sizing: border-box;
         font-size: 2vw;
     }
     
-    .bottom-row {
-        padding: 0 2vw;
-    }
-    
-    .player-title {
-        font-size: 2.2vw;
-    }
-    
-    .player-controls {
-        gap: 2vw;
+    .panel-center {
+        margin: 0 4vw;
     }
     
     .move-buttons {
         gap: 1vw;
+    }
+    
+    .credit-hint {
+        font-size: 2vw;
+    }
+    
+    .controls-hint {
+        font-size: 2vw;
     }
     
     .loading .invader-icon {

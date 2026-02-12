@@ -234,12 +234,9 @@ namespace SpaceInvaders
                 case 1: _inputPorts[1] |= 0x01; break; // Coin
                 case 2: _inputPorts[1] |= 0x04; break; // 1P Start
                 case 3: _inputPorts[1] |= 0x02; break; // 2P Start
-                case 4: _inputPorts[1] |= 0x20; break; // 1P Left
-                case 5: _inputPorts[1] |= 0x40; break; // 1P Right
-                case 6: _inputPorts[1] |= 0x10; break; // 1P Fire
-                case 7: _inputPorts[2] |= 0x20; break; // 2P Left
-                case 8: _inputPorts[2] |= 0x40; break; // 2P Right
-                case 9: _inputPorts[2] |= 0x10; break; // 2P Fire
+                case 4: _inputPorts[1] |= 0x20; _inputPorts[2] |= 0x20; break; // Left (both players)
+                case 5: _inputPorts[1] |= 0x40; _inputPorts[2] |= 0x40; break; // Right (both players)
+                case 6: _inputPorts[1] |= 0x10; _inputPorts[2] |= 0x10; break; // Fire (both players)
             }
         }
         
@@ -253,12 +250,9 @@ namespace SpaceInvaders
                 case 1: _inputPorts[1] &= 0xFE; break; // Coin
                 case 2: _inputPorts[1] &= 0xFB; break; // 1P Start
                 case 3: _inputPorts[1] &= 0xFD; break; // 2P Start
-                case 4: _inputPorts[1] &= 0xDF; break; // 1P Left
-                case 5: _inputPorts[1] &= 0xBF; break; // 1P Right
-                case 6: _inputPorts[1] &= 0xEF; break; // 1P Fire
-                case 7: _inputPorts[2] &= 0xDF; break; // 2P Left
-                case 8: _inputPorts[2] &= 0xBF; break; // 2P Right
-                case 9: _inputPorts[2] &= 0xEF; break; // 2P Fire
+                case 4: _inputPorts[1] &= 0xDF; _inputPorts[2] &= 0xDF; break; // Left (both players)
+                case 5: _inputPorts[1] &= 0xBF; _inputPorts[2] &= 0xBF; break; // Right (both players)
+                case 6: _inputPorts[1] &= 0xEF; _inputPorts[2] &= 0xEF; break; // Fire (both players)
             }
         }
         
@@ -269,12 +263,9 @@ namespace SpaceInvaders
                 "c" or "C" => 1,           // Coin
                 "1" => 2,                   // 1P Start
                 "2" => 3,                   // 2P Start
-                "ArrowLeft" => 4,           // 1P Left
-                "ArrowRight" => 5,          // 1P Right
-                " " => 6,                   // 1P Fire (Space)
-                "a" or "A" => 7,            // 2P Left
-                "d" or "D" => 8,            // 2P Right
-                "w" or "W" => 9,            // 2P Fire
+                "ArrowLeft" => 4,           // Left
+                "ArrowRight" => 5,          // Right
+                " " => 6,                   // Fire (Space)
                 _ => 99
             };
         }
