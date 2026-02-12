@@ -11,15 +11,18 @@
 
 namespace SpaceInvaders.MAINBOARD
 {
-    internal class Memory(long size)
+    public class Memory(long size)
     {
         private readonly byte[] _data = new byte[size];
 
         public byte[] Data => _data;
 
-        public void LoadFromFile(string filePath, int addr, int length)
+        public void LoadFromBytes(byte[] data, int startAddress, int size)
         {
-            Array.Copy(File.ReadAllBytes(filePath), 0, _data, addr, length);
+            for (int i = 0; i < size && i < data.Length; i++)
+            {
+                _data[startAddress + i] = data[i];
+            }
         }
 
         public byte ReadByte(uint addr)

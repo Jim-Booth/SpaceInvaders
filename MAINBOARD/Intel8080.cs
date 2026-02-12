@@ -13,7 +13,7 @@ using System.Diagnostics;
 
 namespace SpaceInvaders.MAINBOARD
 {
-    internal class Intel8080
+    public class Intel8080
     {
         private bool _running;
         private bool _paused;
@@ -76,6 +76,22 @@ namespace SpaceInvaders.MAINBOARD
             _video = new byte[0x1C00];
             _videoStartAddress = 0x2400;
             _registers.PC = 0x0000;
+        }
+
+        /// <summary>
+        /// Executes a single frame worth of CPU cycles (for browser single-threaded use).
+        /// Returns true if frame is ready to render.
+        /// </summary>
+        public bool RunFrame()
+        {
+            if (_paused) return false;
+            
+            ExecuteCycles(HalfFrameCyclesMax);  // 1st half of frame
+            Interrupt(1);                        // mid screen Interrupt
+            ExecuteCycles(HalfFrameCyclesMax);  // 2nd half of frame
+            Interrupt(2);                        // full screen interrupt
+            Buffer.BlockCopy(_memory.Data, (int)_videoStartAddress, _video, 0, _video.Length);
+            return true;
         }
 
         public async Task StartAsync(CancellationToken cancellationToken = default)

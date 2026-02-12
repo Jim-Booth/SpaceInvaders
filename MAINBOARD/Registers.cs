@@ -11,7 +11,7 @@
 
 namespace SpaceInvaders.MAINBOARD
 {
-    internal class Registers
+    public class Registers
     {
         private byte _a;
         private byte _b;

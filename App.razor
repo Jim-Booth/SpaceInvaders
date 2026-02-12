@@ -1,0 +1,20 @@
+@* ============================================================================
+   Project:     SpaceInvaders
+   File:        App.razor
+   Description: Root Blazor component
+   Author:      James Booth
+   Created:     2024
+   License:     MIT License - See LICENSE file in the project root
+   Copyright:   (c) 2024-2026 James Booth
+   ============================================================================ *@
+
+<Router AppAssembly="@typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="@routeData" />
+    </Found>
+    <NotFound>
+        <LayoutView>
+            <p>Page not found</p>
+        </LayoutView>
+    </NotFound>
+</Router>

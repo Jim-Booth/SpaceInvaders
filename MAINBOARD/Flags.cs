@@ -11,7 +11,7 @@
 
 namespace SpaceInvaders.MAINBOARD
 {
-    internal class Flags
+    public class Flags
     {
         private uint _z;  // Zero bit
         private uint _s;  // Sign bit

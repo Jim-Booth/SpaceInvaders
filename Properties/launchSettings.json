@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "SpaceInvaders": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:20983;http://localhost:20984"
+    }
+  }
+}

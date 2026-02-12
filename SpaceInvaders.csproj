@@ -1,47 +1,15 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
     <RootNamespace>SpaceInvaders</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <SignAssembly>True</SignAssembly>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SDL2-CS" Version="2.0.0" />
-    <PackageReference Include="SFML.Net" Version="3.0.0" />
-    <PackageReference Include="System.Drawing.Common" Version="10.0.2" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.0" PrivateAssets="all" />
   </ItemGroup>
-
-  <!-- Copy Cabinet.bmp to output directory -->
-  <ItemGroup>
-    <None Include="CABINET\Cabinet.bmp">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <Link>Cabinet.bmp</Link>
-    </None>
-  </ItemGroup>
-
-  <!-- Copy all files in SOUNDS folder -->
-  <ItemGroup>
-    <None Update="SOUNDS\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <!-- Copy all files in ROMS folder -->
-  <ItemGroup>
-    <None Update="ROMS\**\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
-  <!-- Create symlink to SDL2 native library on macOS after build -->
-  <Target Name="LinkSDL2" AfterTargets="Build" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-    <Exec Command="mkdir -p $(OutputPath)runtimes/osx-arm64/native" />
-    <Exec Command="ln -sf /opt/homebrew/lib/libSDL2.dylib $(OutputPath)runtimes/osx-arm64/native/libSDL2.dylib" />
-  </Target>
 
 </Project>

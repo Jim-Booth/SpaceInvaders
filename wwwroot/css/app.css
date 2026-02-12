@@ -1,0 +1,184 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background-color: #000;
+    font-family: 'Courier New', monospace;
+    color: #fff;
+    overflow: hidden;
+}
+
+#app {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    flex-direction: column;
+}
+
+.loading {
+    text-align: center;
+    color: #0f0;
+}
+
+.loading h1 {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+}
+
+.game-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    outline: none;
+}
+
+#gameCanvas {
+    border: 2px solid #333;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    /* Scale the 224x256 canvas by 3x to 672x768 */
+    width: 672px;
+    height: 768px;
+}
+
+/* ============================================
+   ARCADE CABINET CONTROL PANEL
+   ============================================ */
+
+.cabinet-panel {
+    display: flex;
+    flex-direction: column;
+    width: 672px;
+    margin-top: 10px;
+    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+    border: 3px solid #333;
+    border-radius: 8px;
+    padding: 12px 15px;
+    gap: 12px;
+    box-sizing: border-box;
+    box-shadow: 
+        inset 0 2px 4px rgba(255,255,255,0.1),
+        0 4px 8px rgba(0,0,0,0.5);
+}
+
+/* Round button base style */
+.round-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.round-button .btn {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.round-button .btn .btn-text {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.round-button span {
+    font-size: 0.6rem;
+    color: #888;
+}
+
+/* Top row buttons */
+.top-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 30px;
+}
+
+.p1-start .btn {
+    background: linear-gradient(180deg, #ffffff 0%, #cccccc 100%);
+    border: 3px solid #999999;
+}
+
+.p2-start .btn {
+    background: linear-gradient(180deg, #ffffff 0%, #cccccc 100%);
+    border: 3px solid #999999;
+}
+
+.coin .btn {
+    background: linear-gradient(180deg, #ffd700 0%, #b8860b 100%);
+    border: 2px solid #8b6914;
+}
+
+.coin span {
+    color: #888;
+}
+
+.coin span em {
+    color: #ffd700;
+    text-shadow: 0 0 5px #ffd700;
+    font-style: normal;
+}
+
+/* Bottom row: Player controls */
+.bottom-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 30px;
+}
+
+.player-controls-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.player-title {
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: #888;
+    letter-spacing: 1px;
+}
+
+.player-controls {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.move-buttons {
+    display: flex;
+    gap: 6px;
+}
+
+.move .btn {
+    background: linear-gradient(180deg, #444 0%, #222 100%);
+    border: 2px solid #111;
+}
+
+.fire .btn {
+    background: linear-gradient(180deg, #ff0000 0%, #880000 100%);
+    border: 2px solid #550000;
+}
+
+#blazor-error-ui {
+    background: #800;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+
+#blazor-error-ui .reload {
+    color: #fff;
+    margin-left: 10px;
+}

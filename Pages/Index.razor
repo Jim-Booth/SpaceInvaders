@@ -1,0 +1,179 @@
+@* ============================================================================
+   Project:     SpaceInvaders
+   File:        Index.razor
+   Description: Main game page component with canvas rendering and input handling
+   Author:      James Booth
+   Created:     2024
+   License:     MIT License - See LICENSE file in the project root
+   Copyright:   (c) 2024-2026 James Booth
+   ============================================================================ *@
+
+@page "/"
+@inject IJSRuntime JS
+@inject HttpClient Http
+@implements IAsyncDisposable
+
+<div class="game-container" @onkeydown="OnKeyDown" @onkeyup="OnKeyUp" @onkeydown:preventDefault tabindex="0" @ref="_containerRef">
+    @if (_isLoading)
+    {
+        <div class="loading">
+            <h1>SPACE INVADERS</h1>
+            <p>@_loadingMessage</p>
+        </div>
+    }
+    
+    <canvas id="gameCanvas" style="display: @(_isLoading ? "none" : "block")"></canvas>
+    
+    @if (!_isLoading)
+    {
+        <!-- Control panel styled like original arcade cabinet -->
+        <div class="cabinet-panel">
+            <!-- Top row: 1P Start, Coin, 2P Start -->
+            <div class="top-row">
+                <div class="round-button p1-start">
+                    <div class="btn"><span class="btn-text">1P</span></div>
+                    <span>1</span>
+                </div>
+                <div class="round-button coin">
+                    <div class="btn"></div>
+                    <span><em>C</em>OIN</span>
+                </div>
+                <div class="round-button p2-start">
+                    <div class="btn"><span class="btn-text">2P</span></div>
+                    <span>2</span>
+                </div>
+            </div>
+            
+            <!-- Bottom row: Player controls -->
+            <div class="bottom-row">
+                <!-- Player 1: Left/Right then Fire -->
+                <div class="player-controls-group">
+                    <div class="player-title">1 PLAYER</div>
+                    <div class="player-controls">
+                        <div class="move-buttons">
+                            <div class="round-button move">
+                                <div class="btn"></div>
+                                <span>&larr;</span>
+                            </div>
+                            <div class="round-button move">
+                                <div class="btn"></div>
+                                <span>&rarr;</span>
+                            </div>
+                        </div>
+                        <div class="round-button fire">
+                            <div class="btn"></div>
+                            <span>SPACE</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Player 2: Left/Right then Fire -->
+                <div class="player-controls-group">
+                    <div class="player-title">2 PLAYER</div>
+                    <div class="player-controls">
+                        <div class="move-buttons">
+                            <div class="round-button move">
+                                <div class="btn"></div>
+                                <span>A</span>
+                            </div>
+                            <div class="round-button move">
+                                <div class="btn"></div>
+                                <span>D</span>
+                            </div>
+                        </div>
+                        <div class="round-button fire">
+                            <div class="btn"></div>
+                            <span>W</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private SpaceInvadersEmulator? _emulator;
+    private PeriodicTimer? _gameLoop;
+    private CancellationTokenSource? _cts;
+    private bool _isLoading = true;
+    private string _loadingMessage = "Loading...";
+    private ElementReference _containerRef;
+    private bool _hasInitialized;
+    
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Wait for next render cycle to ensure canvas is in DOM
+            await Task.Delay(50);
+            await InitializeEmulatorAsync();
+        }
+    }
+    
+    private async Task InitializeEmulatorAsync()
+    {
+        if (_hasInitialized) return;
+        _hasInitialized = true;
+        
+        try
+        {
+            _emulator = new SpaceInvadersEmulator(JS, Http);
+            
+            _loadingMessage = "Loading ROMs...";
+            StateHasChanged();
+            
+            await _emulator.InitializeAsync();
+            
+            _isLoading = false;
+            StateHasChanged();
+            
+            // Focus the container for keyboard input
+            await Task.Delay(100);
+            await _containerRef.FocusAsync();
+            
+            // Start game loop at ~60 FPS
+            _cts = new CancellationTokenSource();
+            _gameLoop = new PeriodicTimer(TimeSpan.FromMilliseconds(16));
+            
+            _ = Task.Run(GameLoopAsync);
+        }
+        catch (Exception ex)
+        {
+            _loadingMessage = $"Error: {ex.Message}";
+            StateHasChanged();
+        }
+    }
+    
+    private async Task GameLoopAsync()
+    {
+        try
+        {
+            while (await _gameLoop!.WaitForNextTickAsync(_cts!.Token))
+            {
+                await _emulator!.RunFrameAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected on dispose
+        }
+    }
+    
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        _emulator?.KeyDown(e.Key);
+    }
+    
+    private void OnKeyUp(KeyboardEventArgs e)
+    {
+        _emulator?.KeyUp(e.Key);
+    }
+    
+    public async ValueTask DisposeAsync()
+    {
+        _cts?.Cancel();
+        _gameLoop?.Dispose();
+        _cts?.Dispose();
+    }
+}
