@@ -59,7 +59,7 @@ margin-top: 2px;
 background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
 border: 3px solid #333;
 border-radius: 8px;
-padding: 12px 15px 4px 15px;
+padding: 12px 15px 8px 15px;
 gap: 0;
 box-sizing: border-box;
     box-shadow: 
@@ -166,9 +166,26 @@ box-sizing: border-box;
     border: 2px solid #111;
 }
 
+.move .btn .btn-text {
+    color: #fff;
+}
+
+.arrow-text {
+    font-size: 1.6rem !important;
+    margin-top: -2px;
+}
+
 .fire .btn {
     background: linear-gradient(180deg, #ff0000 0%, #880000 100%);
     border: 2px solid #550000;
+}
+
+.fire .btn .btn-text {
+    color: #fff;
+}
+
+.fire-text {
+    font-size: 0.75rem !important;
 }
 
 #blazor-error-ui {
