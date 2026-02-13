@@ -27,7 +27,7 @@ Then open your browser to `https://localhost:5443` or `http://localhost:5000`.
 
 ## Controls
 
-### Game Controls
+### Desktop (Keyboard)
 
 | Key | Action |
 |-----|--------|
@@ -38,6 +38,17 @@ Then open your browser to `https://localhost:5443` or `http://localhost:5000`.
 | **Space** | Fire (Player 1) |
 | **A** / **D** | Move (Player 2) |
 | **W** | Fire (Player 2) |
+
+### Mobile (Touch Controls)
+
+On mobile devices a set of on-screen touch buttons is displayed below the game screen, replacing the keyboard hints shown on desktop. The buttons are arranged in two rows that match the width of the game canvas:
+
+| Row | Buttons |
+|-----|---------|
+| **Top** | **◀** (move left) · **FIRE** · **▶** (move right) |
+| **Bottom** | **1P** (1 player start) · **COIN** (insert coin) · **2P** (2 player start) |
+
+Mobile detection is automatic — touch controls appear only on phones and tablets, while desktop users continue to use the keyboard as normal.
 
 ## ROM Files
 
