@@ -47,102 +47,11 @@ html, body {
     height: 768px;
 }
 
-/* ============================================
-   ARCADE CABINET CONTROL PANEL
-   ============================================ */
-
-.cabinet-panel {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    width: 672px;
-    height: 85px;
-    margin-top: 2px;
-    background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
-    border: 3px solid #333;
-    border-radius: 8px;
-    padding: 0 15px;
-    box-sizing: border-box;
-    box-shadow: 
-        inset 0 2px 4px rgba(255,255,255,0.1),
-        0 4px 8px rgba(0,0,0,0.5);
-}
-
-/* Round button base style */
-.round-button {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-}
-
-.round-button .btn {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-.round-button .btn .btn-text {
-    font-size: 0.9rem;
-    font-weight: bold;
-    color: #333;
-}
-
-.round-button span {
-    font-size: 0.6rem;
-    color: #888;
-}
-
-/* Panel single-row layout */
-.panel-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-}
-
-.panel-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.panel-left {
-    flex: 1;
-    justify-content: center;
-    margin-right: auto;
-}
-
-.panel-center {
-    flex: 0 0 auto;
-    margin: 0 30px;
-}
-
-.panel-right {
-    flex: 1;
-    justify-content: center;
-    margin-left: auto;
-}
-
-.p1-start .btn {
-    background: linear-gradient(180deg, #ffffff 0%, #cccccc 100%);
-    border: 2px solid #999999;
-}
-
-.p2-start .btn {
-    background: linear-gradient(180deg, #ffffff 0%, #cccccc 100%);
-    border: 2px solid #999999;
-}
-
-/* Credit hint text below the panel */
+/* Credit hint text below the game canvas */
 .credit-hint {
     margin-top: 6px;
     margin-bottom: 0;
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     color: #555;
     text-align: center;
     letter-spacing: 1px;
@@ -156,43 +65,16 @@ html, body {
 
 .controls-hint {
     margin-top: -12px;
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     color: #555;
     text-align: center;
     letter-spacing: 1px;
     line-height: 1.6;
 }
 
-.move-buttons {
-    display: flex;
-    gap: 6px;
-}
-
-.move .btn {
-    background: linear-gradient(180deg, #444 0%, #222 100%);
-    border: 2px solid #111;
-}
-
-.move .btn .btn-text {
-    color: #fff;
-}
-
 .arrow-text {
     font-size: 1.6rem !important;
     margin-top: -2px;
-}
-
-.fire .btn {
-    background: linear-gradient(180deg, #ff0000 0%, #880000 100%);
-    border: 2px solid #550000;
-}
-
-.fire .btn .btn-text {
-    color: #fff;
-}
-
-.fire-text {
-    font-size: 0.75rem !important;
 }
 
 #blazor-error-ui {
@@ -244,42 +126,12 @@ html, body {
         max-height: 768px;
     }
     
-    .cabinet-panel {
-        width: 96vw;
-        max-width: 672px;
-        height: 85px;
-        padding: 0 2vw;
-    }
-    
-    .round-button .btn {
-        width: 8vw;
-        height: 8vw;
-        max-width: 45px;
-        max-height: 45px;
-    }
-    
-    .round-button .btn .btn-text {
+    .credit-hint {
         font-size: 2.5vw;
     }
     
-    .round-button span {
-        font-size: 2vw;
-    }
-    
-    .panel-center {
-        margin: 0 4vw;
-    }
-    
-    .move-buttons {
-        gap: 1vw;
-    }
-    
-    .credit-hint {
-        font-size: 2vw;
-    }
-    
     .controls-hint {
-        font-size: 2vw;
+        font-size: 2.5vw;
     }
     
     .loading .invader-icon {
