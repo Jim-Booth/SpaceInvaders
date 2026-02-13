@@ -95,6 +95,90 @@ html, body {
 }
 
 /* ============================================
+   ON-SCREEN TOUCH CONTROLS
+   ============================================ */
+
+#touch-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    width: 672px;                /* Match the desktop canvas width */
+    max-width: 672px;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
+.touch-row {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+}
+
+.touch-btn {
+    flex: 1;
+    height: 56px;
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    font-weight: bold;
+    background: rgba(0, 255, 0, 0.15);
+    color: #0f0;
+    border: 2px solid rgba(0, 255, 0, 0.4);
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    transition: background 0.05s;
+}
+
+.touch-btn:active,
+.touch-btn.active {
+    background: rgba(0, 255, 0, 0.45);
+    border-color: #0f0;
+    box-shadow: 0 0 12px rgba(0, 255, 0, 0.5);
+}
+
+/* Move buttons are narrower, fire button takes more space */
+.touch-btn.touch-move {
+    flex: 1;
+    font-size: 1.4rem;
+}
+
+.touch-btn.touch-fire {
+    flex: 2;
+    font-size: 1.2rem;
+    color: #ff4444;
+    border-color: rgba(255, 68, 68, 0.4);
+    background: rgba(255, 68, 68, 0.15);
+}
+
+.touch-btn.touch-fire:active,
+.touch-btn.touch-fire.active {
+    background: rgba(255, 68, 68, 0.45);
+    border-color: #ff4444;
+    box-shadow: 0 0 12px rgba(255, 68, 68, 0.5);
+}
+
+.touch-btn.touch-action {
+    font-size: 0.9rem;
+    height: 44px;
+    color: #ffd700;
+    border-color: rgba(255, 215, 0, 0.3);
+    background: rgba(255, 215, 0, 0.1);
+}
+
+.touch-btn.touch-action:active,
+.touch-btn.touch-action.active {
+    background: rgba(255, 215, 0, 0.35);
+    border-color: #ffd700;
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.4);
+}
+
+/* ============================================
    RESPONSIVE / MOBILE STYLES
    ============================================ */
 
@@ -125,13 +209,29 @@ html, body {
         max-width: 672px;
         max-height: 768px;
     }
-    
-    .credit-hint {
-        font-size: 2.5vw;
+
+    #touch-controls {
+        width: 96vw;
+        max-width: 672px;
+    }
+
+    .touch-btn {
+        height: 50px;
+        font-size: 1rem;
+    }
+
+    .touch-btn.touch-move {
+        font-size: 1.3rem;
+    }
+
+    .touch-btn.touch-action {
+        height: 40px;
+        font-size: 0.8rem;
     }
     
+    .credit-hint,
     .controls-hint {
-        font-size: 2.5vw;
+        display: none;
     }
     
     .loading .invader-icon {

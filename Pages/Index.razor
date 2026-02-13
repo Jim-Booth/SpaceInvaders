@@ -12,6 +12,7 @@
 @inject IJSRuntime JS
 @inject HttpClient Http
 @implements IAsyncDisposable
+@using Microsoft.JSInterop
 
 <div class="game-container" @onkeydown="OnKeyDown" @onkeyup="OnKeyUp" @onkeydown:preventDefault tabindex="0" @ref="_containerRef">
     @if (_isLoading)
@@ -60,6 +61,7 @@
     private string _loadingMessage = "Loading...";
     private ElementReference _containerRef;
     private bool _hasInitialized;
+    private DotNetObjectReference<Index>? _dotNetRef;
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -94,6 +96,10 @@
             // Focus the container for keyboard input
             await Task.Delay(100);
             await _containerRef.FocusAsync();
+            
+            // Initialize touch controls (passes a reference so JS can call back into C#)
+            _dotNetRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("gameInterop.initializeTouchControls", _dotNetRef);
             
             // Start game loop at ~60 FPS
             _cts = new CancellationTokenSource();
@@ -133,11 +139,24 @@
         _emulator?.KeyUp(e.Key);
     }
     
+    [JSInvokable]
+    public void OnTouchKeyDown(string key)
+    {
+        _emulator?.KeyDown(key);
+    }
+    
+    [JSInvokable]
+    public void OnTouchKeyUp(string key)
+    {
+        _emulator?.KeyUp(key);
+    }
+    
     public ValueTask DisposeAsync()
     {
         _cts?.Cancel();
         _gameLoop?.Dispose();
         _cts?.Dispose();
+        _dotNetRef?.Dispose();
         return ValueTask.CompletedTask;
     }
 }

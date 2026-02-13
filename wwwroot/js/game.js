@@ -5,6 +5,7 @@ window.gameInterop = {
     ctx: null,
     imageData: null,
     sounds: {},
+    dotNetHelper: null,
     
     // Initialize the canvas
     initialize: function(canvasId, width, height) {
@@ -56,5 +57,84 @@ window.gameInterop = {
                 // Ignore autoplay errors - user hasn't interacted yet
             });
         }
+    },
+
+    // Check if the device is mobile / touch-capable
+    isMobile: function() {
+        return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+            || (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
+    },
+
+    // Initialize on-screen touch controls for mobile devices
+    initializeTouchControls: function(dotNetHelper) {
+        this.dotNetHelper = dotNetHelper;
+
+        if (!this.isMobile()) return;
+
+        if (!this.canvas) {
+            console.error('Canvas not found - cannot create touch controls');
+            return;
+        }
+
+        // Create touch controls container
+        const controlsDiv = document.createElement('div');
+        controlsDiv.id = 'touch-controls';
+        controlsDiv.innerHTML = `
+            <div class="touch-row">
+                <button class="touch-btn touch-move" id="btn-left">&#9664;</button>
+                <button class="touch-btn touch-fire" id="btn-fire">FIRE</button>
+                <button class="touch-btn touch-move" id="btn-right">&#9654;</button>
+            </div>
+            <div class="touch-row">
+                <button class="touch-btn touch-action" id="btn-1p">1P</button>
+                <button class="touch-btn touch-action" id="btn-coin">COIN</button>
+                <button class="touch-btn touch-action" id="btn-2p">2P</button>
+            </div>
+        `;
+
+        // Insert after the canvas
+        this.canvas.parentNode.insertBefore(controlsDiv, this.canvas.nextSibling);
+
+        // Bind touch/mouse events to each button
+        // Maps button id to the key string expected by SpaceInvadersEmulator.MapKey()
+        const buttonKeyMap = {
+            'btn-left':  'ArrowLeft',
+            'btn-right': 'ArrowRight',
+            'btn-fire':  ' ',
+            'btn-coin':  'c',
+            'btn-1p':    '1',
+            'btn-2p':    '2'
+        };
+
+        for (const [btnId, key] of Object.entries(buttonKeyMap)) {
+            const btn = document.getElementById(btnId);
+
+            const startHandler = (e) => {
+                e.preventDefault();
+                btn.classList.add('active');
+                if (this.dotNetHelper) {
+                    this.dotNetHelper.invokeMethodAsync('OnTouchKeyDown', key);
+                }
+            };
+            const endHandler = (e) => {
+                e.preventDefault();
+                btn.classList.remove('active');
+                if (this.dotNetHelper) {
+                    this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', key);
+                }
+            };
+
+            // Touch events (primary for mobile)
+            btn.addEventListener('touchstart', startHandler, { passive: false });
+            btn.addEventListener('touchend', endHandler, { passive: false });
+            btn.addEventListener('touchcancel', endHandler, { passive: false });
+
+            // Mouse events (fallback for desktop testing)
+            btn.addEventListener('mousedown', startHandler);
+            btn.addEventListener('mouseup', endHandler);
+            btn.addEventListener('mouseleave', endHandler);
+        }
+
+        console.log('Touch controls initialized');
     }
 };
