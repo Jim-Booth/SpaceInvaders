@@ -44,6 +44,11 @@
         </div>
     }
     
+    @if (!_isLoading)
+    {
+        <div class="version-label">version: @_versionString</div>
+    }
+    
     <canvas id="gameCanvas" style="display: @(_isLoading ? "none" : "block")"></canvas>
     
     @if (!_isLoading)
@@ -62,6 +67,7 @@
     private ElementReference _containerRef;
     private bool _hasInitialized;
     private DotNetObjectReference<Index>? _dotNetRef;
+    private string _versionString = typeof(Index).Assembly.GetName().Version?.ToString(3) ?? "0.0";
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
