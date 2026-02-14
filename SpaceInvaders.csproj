@@ -5,7 +5,7 @@
     <RootNamespace>SpaceInvaders</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>3.4.0112</Version>
+    <Version>3.4.0113</Version>
   </PropertyGroup>
 
   <ItemGroup>
