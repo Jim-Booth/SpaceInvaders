@@ -103,22 +103,27 @@ window.gameInterop = {
         const slider = document.getElementById('touch-slider');
         const thumb = document.getElementById('slider-thumb');
         let sliderDirection = null; // null, 'ArrowLeft', or 'ArrowRight'
+        let sliderStartX = null;    // clientX when touch/mouse began
+        const SLIDER_DEADZONE = 3;  // pixels of movement before direction triggers
 
         const updateSliderDirection = (clientX) => {
+            if (sliderStartX === null) return;
+
+            const delta = clientX - sliderStartX;
             const rect = slider.getBoundingClientRect();
-            const relX = clientX - rect.left;
-            const pct = relX / rect.width;
 
-            // Move the thumb visual
-            const clampedPct = Math.max(0, Math.min(1, pct));
-            thumb.style.left = (clampedPct * 100) + '%';
+            // Move the thumb visual relative to center based on delta
+            const centerPct = 50;
+            const deltaPct = (delta / rect.width) * 100;
+            const clampedPct = Math.max(0, Math.min(100, centerPct + deltaPct));
+            thumb.style.left = clampedPct + '%';
 
-            // Determine zone: left / narrow center deadzone / right
+            // Determine direction based on movement delta from start
             let newDir = null;
-            if (pct < 0.47) {
+            if (delta < -SLIDER_DEADZONE) {
                 newDir = 'ArrowLeft';
                 slider.className = 'touch-slider active-left';
-            } else if (pct > 0.53) {
+            } else if (delta > SLIDER_DEADZONE) {
                 newDir = 'ArrowRight';
                 slider.className = 'touch-slider active-right';
             } else {
@@ -145,6 +150,7 @@ window.gameInterop = {
                 this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', sliderDirection);
             }
             sliderDirection = null;
+            sliderStartX = null;
             slider.className = 'touch-slider';
             thumb.style.left = '50%';
         };
@@ -152,7 +158,9 @@ window.gameInterop = {
         // Touch events for slider
         slider.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            updateSliderDirection(e.touches[0].clientX);
+            sliderStartX = e.touches[0].clientX;
+            thumb.style.left = '50%';
+            slider.className = 'touch-slider active-center';
         }, { passive: false });
 
         slider.addEventListener('touchmove', (e) => {
@@ -175,7 +183,9 @@ window.gameInterop = {
         slider.addEventListener('mousedown', (e) => {
             e.preventDefault();
             sliderMouseDown = true;
-            updateSliderDirection(e.clientX);
+            sliderStartX = e.clientX;
+            thumb.style.left = '50%';
+            slider.className = 'touch-slider active-center';
         });
         document.addEventListener('mousemove', (e) => {
             if (sliderMouseDown) {
