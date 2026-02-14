@@ -69,7 +69,7 @@ window.gameInterop = {
     initializeTouchControls: function(dotNetHelper) {
         this.dotNetHelper = dotNetHelper;
 
-        if (!this.isMobile()) return;
+        //if (!this.isMobile()) return;
 
         if (!this.canvas) {
             console.error('Canvas not found - cannot create touch controls');
@@ -81,11 +81,9 @@ window.gameInterop = {
         controlsDiv.id = 'touch-controls';
         controlsDiv.innerHTML = `
             <div class="touch-row">
-                <div class="touch-slider" id="touch-slider">
-                    <div class="slider-zone slider-zone-left">&#9664;</div>
-                    <div class="slider-zone slider-zone-center">&#x2022;</div>
-                    <div class="slider-zone slider-zone-right">&#9654;</div>
-                    <div class="slider-thumb" id="slider-thumb"></div>
+                <div class="direction-controls" id="direction-controls">
+                    <button class="touch-btn touch-dir" id="btn-left">&#9664;</button>
+                    <button class="touch-btn touch-dir" id="btn-right">&#9654;</button>
                 </div>
                 <button class="touch-btn touch-fire" id="btn-fire">FIRE</button>
             </div>
@@ -99,164 +97,84 @@ window.gameInterop = {
         // Insert after the canvas
         this.canvas.parentNode.insertBefore(controlsDiv, this.canvas.nextSibling);
 
-        // --- Directional slider logic ---
-        const slider = document.getElementById('touch-slider');
-        const thumb = document.getElementById('slider-thumb');
-        let sliderDirection = null; // null, 'ArrowLeft', or 'ArrowRight'
-        let lastTurnX = null;       // reference point for detecting direction change
-        let peakX = null;           // furthest X reached in current direction
-        let sliderOriginX = null;   // initial touch X for visual thumb positioning
-        let stopTimer = null;       // timer to detect when slider movement stops
-        const SLIDER_DEADZONE = 3;  // pixels of movement before direction triggers
-        const STOP_DELAY = 80;      // ms of no movement before releasing button
+        // --- Direction buttons logic (tap + slide-over) ---
+        const dirContainer = document.getElementById('direction-controls');
+        const btnLeft = document.getElementById('btn-left');
+        const btnRight = document.getElementById('btn-right');
+        let activeDir = null; // null, 'ArrowLeft', or 'ArrowRight'
 
-        const clearDirection = () => {
-            if (sliderDirection && this.dotNetHelper) {
-                this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', sliderDirection);
+        const hitTestDirection = (clientX, clientY) => {
+            const leftRect = btnLeft.getBoundingClientRect();
+            const rightRect = btnRight.getBoundingClientRect();
+            if (clientX >= leftRect.left && clientX <= leftRect.right &&
+                clientY >= leftRect.top && clientY <= leftRect.bottom) {
+                return 'ArrowLeft';
             }
-            sliderDirection = null;
-            peakX = null;
-            slider.className = 'touch-slider active-center';
+            if (clientX >= rightRect.left && clientX <= rightRect.right &&
+                clientY >= rightRect.top && clientY <= rightRect.bottom) {
+                return 'ArrowRight';
+            }
+            return null;
         };
 
-        const updateSliderDirection = (clientX) => {
-            if (lastTurnX === null) return;
-
-            // Reset stop timer — movement is happening
-            if (stopTimer) clearTimeout(stopTimer);
-            stopTimer = setTimeout(clearDirection, STOP_DELAY);
-
-            const rect = slider.getBoundingClientRect();
-
-            // Move the thumb visual relative to center based on total delta from origin
-            const totalDelta = clientX - sliderOriginX;
-            const centerPct = 50;
-            const deltaPct = (totalDelta / rect.width) * 100;
-            const clampedPct = Math.max(0, Math.min(100, centerPct + deltaPct));
-            thumb.style.left = clampedPct + '%';
-
-            // Calculate delta from the last turning point
-            const delta = clientX - lastTurnX;
-
-            // Update peak to track the furthest point in the current direction
-            if (sliderDirection === 'ArrowRight') {
-                if (clientX > peakX) peakX = clientX;
-            } else if (sliderDirection === 'ArrowLeft') {
-                if (clientX < peakX) peakX = clientX;
-            } else {
-                // No direction yet — track both extremes via lastTurnX
-                if (clientX > peakX) peakX = clientX;
-                if (clientX < peakX && (peakX - clientX) > (clientX - lastTurnX)) {
-                    // Reset: we haven't committed to a direction yet
-                }
+        const setDirection = (newDir) => {
+            if (newDir === activeDir) return;
+            // Release previous
+            if (activeDir) {
+                (activeDir === 'ArrowLeft' ? btnLeft : btnRight).classList.remove('active');
+                if (this.dotNetHelper) this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', activeDir);
             }
-
-            // Determine direction based on movement from turning point (or peak for reversals)
-            let newDir = sliderDirection;
-            if (sliderDirection === null) {
-                // No direction yet — simple delta from initial touch
-                if (delta > SLIDER_DEADZONE) {
-                    newDir = 'ArrowRight';
-                } else if (delta < -SLIDER_DEADZONE) {
-                    newDir = 'ArrowLeft';
-                }
-            } else if (sliderDirection === 'ArrowRight') {
-                // Currently going right — detect reversal from peak
-                if (peakX - clientX > SLIDER_DEADZONE) {
-                    newDir = 'ArrowLeft';
-                }
-            } else if (sliderDirection === 'ArrowLeft') {
-                // Currently going left — detect reversal from peak
-                if (clientX - peakX > SLIDER_DEADZONE) {
-                    newDir = 'ArrowRight';
-                }
+            // Press new
+            if (newDir) {
+                (newDir === 'ArrowLeft' ? btnLeft : btnRight).classList.add('active');
+                if (this.dotNetHelper) this.dotNetHelper.invokeMethodAsync('OnTouchKeyDown', newDir);
             }
-
-            // Apply styling
-            if (newDir === 'ArrowLeft') {
-                slider.className = 'touch-slider active-left';
-            } else if (newDir === 'ArrowRight') {
-                slider.className = 'touch-slider active-right';
-            } else {
-                slider.className = 'touch-slider active-center';
-            }
-
-            // Only send events when direction changes
-            if (newDir !== sliderDirection) {
-                // Release previous direction
-                if (sliderDirection && this.dotNetHelper) {
-                    this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', sliderDirection);
-                }
-                // Press new direction
-                if (newDir && this.dotNetHelper) {
-                    this.dotNetHelper.invokeMethodAsync('OnTouchKeyDown', newDir);
-                }
-                sliderDirection = newDir;
-                // Reset peak to current position on direction change
-                peakX = clientX;
-            }
+            activeDir = newDir;
         };
 
-        const resetSlider = () => {
-            if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
-            if (sliderDirection && this.dotNetHelper) {
-                this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', sliderDirection);
-            }
-            sliderDirection = null;
-            lastTurnX = null;
-            peakX = null;
-            sliderOriginX = null;
-            slider.className = 'touch-slider';
-            thumb.style.left = '50%';
+        const releaseDirection = () => {
+            setDirection(null);
         };
 
-        // Touch events for slider
-        slider.addEventListener('touchstart', (e) => {
+        // Touch events on the direction container (handles slide-over)
+        dirContainer.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            const x = e.touches[0].clientX;
-            lastTurnX = x;
-            peakX = x;
-            sliderOriginX = x;
-            thumb.style.left = '50%';
-            slider.className = 'touch-slider active-center';
+            const t = e.touches[0];
+            setDirection(hitTestDirection(t.clientX, t.clientY));
         }, { passive: false });
 
-        slider.addEventListener('touchmove', (e) => {
+        dirContainer.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            updateSliderDirection(e.touches[0].clientX);
+            const t = e.touches[0];
+            setDirection(hitTestDirection(t.clientX, t.clientY));
         }, { passive: false });
 
-        slider.addEventListener('touchend', (e) => {
+        dirContainer.addEventListener('touchend', (e) => {
             e.preventDefault();
-            resetSlider();
+            releaseDirection();
         }, { passive: false });
 
-        slider.addEventListener('touchcancel', (e) => {
+        dirContainer.addEventListener('touchcancel', (e) => {
             e.preventDefault();
-            resetSlider();
+            releaseDirection();
         }, { passive: false });
 
-        // Mouse events for slider (desktop testing)
-        let sliderMouseDown = false;
-        slider.addEventListener('mousedown', (e) => {
+        // Mouse events for desktop testing
+        let dirMouseDown = false;
+        dirContainer.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            sliderMouseDown = true;
-            const x = e.clientX;
-            lastTurnX = x;
-            peakX = x;
-            sliderOriginX = x;
-            thumb.style.left = '50%';
-            slider.className = 'touch-slider active-center';
+            dirMouseDown = true;
+            setDirection(hitTestDirection(e.clientX, e.clientY));
         });
         document.addEventListener('mousemove', (e) => {
-            if (sliderMouseDown) {
-                updateSliderDirection(e.clientX);
+            if (dirMouseDown) {
+                setDirection(hitTestDirection(e.clientX, e.clientY));
             }
         });
         document.addEventListener('mouseup', () => {
-            if (sliderMouseDown) {
-                sliderMouseDown = false;
-                resetSlider();
+            if (dirMouseDown) {
+                dirMouseDown = false;
+                releaseDirection();
             }
         });
 

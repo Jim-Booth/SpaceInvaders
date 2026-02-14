@@ -128,78 +128,45 @@ html, body {
     gap: 8px;
 }
 
-/* --- Directional slider --- */
+/* --- Direction buttons --- */
 
-.touch-slider {
-    flex: 2;
-    height: 56px;
+.direction-controls {
+    flex: 1 1 0;
+    min-width: 0;
     position: relative;
     display: flex;
-    border: 2px solid rgba(0, 255, 0, 0.4);
-    border-radius: 8px;
-    background: rgba(0, 255, 0, 0.08);
-    overflow: hidden;
     touch-action: none;
-    cursor: pointer;
     -webkit-tap-highlight-color: transparent;
+    height: 56px;
 }
 
-.slider-zone {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: 'Courier New', monospace;
-    font-size: 1.3rem;
-    font-weight: bold;
-    color: rgba(0, 255, 0, 0.3);
-    pointer-events: none;
-    transition: color 0.05s;
-}
-
-.slider-zone-center {
-    font-size: 0.8rem;
-}
-
-/* Highlight the active zone */
-.touch-slider.active-left .slider-zone-left {
-    color: #0f0;
-    text-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
-}
-.touch-slider.active-right .slider-zone-right {
-    color: #0f0;
-    text-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
-}
-.touch-slider.active-center .slider-zone-center {
-    color: rgba(0, 255, 0, 0.5);
-}
-
-.touch-slider.active-left {
-    background: linear-gradient(to right, rgba(0, 255, 0, 0.3), transparent 50%);
-}
-.touch-slider.active-right {
-    background: linear-gradient(to left, rgba(0, 255, 0, 0.3), transparent 50%);
-}
-
-/* Slider thumb */
-.slider-thumb {
+.touch-btn.touch-dir {
     position: absolute;
-    top: 4px;
-    bottom: 4px;
-    width: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0, 255, 0, 0.5);
-    border-radius: 4px;
-    pointer-events: none;
-    transition: left 0.04s;
+    width: 20%;
+    height: 100%;
+    font-size: 1.3rem;
+    user-select: none;
+    -webkit-user-select: none;
+    flex: none;
 }
 
-.touch-slider.active-left .slider-thumb,
-.touch-slider.active-right .slider-thumb,
-.touch-slider.active-center .slider-thumb {
-    background: #0f0;
-    box-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+.touch-btn.touch-dir#btn-left {
+    left: 33.33%;
+    transform: translateX(-50%);
+}
+
+.touch-btn.touch-dir#btn-right {
+    left: 66.67%;
+    transform: translateX(-50%);
+}
+
+.touch-btn.touch-fire {
+    flex: none;
+    width: calc((100% - 16px) / 3);
+    font-size: 1.2rem;
+    color: #ff4444;
+    border-color: rgba(255, 68, 68, 0.4);
+    background: rgba(255, 68, 68, 0.15);
 }
 
 /* --- Buttons --- */
@@ -225,14 +192,6 @@ html, body {
     background: rgba(0, 255, 0, 0.45);
     border-color: #0f0;
     box-shadow: 0 0 12px rgba(0, 255, 0, 0.5);
-}
-
-.touch-btn.touch-fire {
-    flex: 1;
-    font-size: 1.2rem;
-    color: #ff4444;
-    border-color: rgba(255, 68, 68, 0.4);
-    background: rgba(255, 68, 68, 0.15);
 }
 
 .touch-btn.touch-fire:active,
@@ -294,7 +253,11 @@ html, body {
         max-width: 672px;
     }
 
-    .touch-slider {
+    .direction-controls {
+        height: auto;
+    }
+
+    .touch-btn.touch-dir {
         height: 50px;
     }
 
