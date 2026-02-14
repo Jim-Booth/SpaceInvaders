@@ -69,24 +69,17 @@ window.gameInterop = {
     initializeTouchControls: function(dotNetHelper) {
         this.dotNetHelper = dotNetHelper;
 
-        //if (!this.isMobile()) return;
+        if (!this.isMobile()) return;
 
         if (!this.canvas) {
             console.error('Canvas not found - cannot create touch controls');
             return;
         }
 
-        // Create touch controls container
-        const controlsDiv = document.createElement('div');
-        controlsDiv.id = 'touch-controls';
-        controlsDiv.innerHTML = `
-            <div class="touch-row">
-                <div class="direction-controls" id="direction-controls">
-                    <button class="touch-btn touch-dir" id="btn-left">&#9664;</button>
-                    <button class="touch-btn touch-dir" id="btn-right">&#9654;</button>
-                </div>
-                <button class="touch-btn touch-fire" id="btn-fire">FIRE</button>
-            </div>
+        // Create action buttons container (above canvas)
+        const actionDiv = document.createElement('div');
+        actionDiv.id = 'touch-controls-top';
+        actionDiv.innerHTML = `
             <div class="touch-row">
                 <button class="touch-btn touch-action" id="btn-1p">1P</button>
                 <button class="touch-btn touch-action" id="btn-coin">COIN</button>
@@ -94,8 +87,24 @@ window.gameInterop = {
             </div>
         `;
 
-        // Insert after the canvas
-        this.canvas.parentNode.insertBefore(controlsDiv, this.canvas.nextSibling);
+        // Create direction controls container (below canvas)
+        const controlsDiv = document.createElement('div');
+        controlsDiv.id = 'touch-controls';
+        controlsDiv.innerHTML = `
+            <div class="touch-row touch-row-direction">
+                <div class="direction-controls" id="direction-controls">
+                    <button class="touch-btn touch-dir" id="btn-left">&#9664;</button>
+                    <button class="touch-btn touch-dir" id="btn-right">&#9654;</button>
+                </div>
+                <button class="touch-btn touch-fire" id="btn-fire">FIRE</button>
+            </div>
+        `;
+
+        // Insert action buttons before the canvas wrapper, direction controls after
+        const canvasWrapper = this.canvas.closest('.canvas-wrapper') || this.canvas.parentNode;
+        const gameContainer = canvasWrapper.parentNode;
+        gameContainer.insertBefore(actionDiv, canvasWrapper);
+        gameContainer.insertBefore(controlsDiv, canvasWrapper.nextSibling);
 
         // --- Direction buttons logic (tap + slide-over) ---
         const dirContainer = document.getElementById('direction-controls');

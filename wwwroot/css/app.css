@@ -39,12 +39,21 @@ html, body {
 }
 
 .version-label {
-    width: 672px;
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    width: auto;
     text-align: right;
     font-size: 0.65rem;
     color: #555;
-    margin-bottom: 2px;
+    margin: 0;
     letter-spacing: 0.5px;
+}
+
+.canvas-wrapper {
+    position: relative;
+    display: inline-block;
 }
 
 #gameCanvas {
@@ -107,6 +116,20 @@ html, body {
    ON-SCREEN TOUCH CONTROLS
    ============================================ */
 
+#touch-controls-top {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    width: 672px;
+    max-width: 672px;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+
 #touch-controls {
     display: flex;
     flex-direction: column;
@@ -126,6 +149,10 @@ html, body {
     justify-content: space-between;
     width: 100%;
     gap: 8px;
+}
+
+.touch-row-direction {
+    transform: translateX(-61px);
 }
 
 /* --- Direction buttons --- */
@@ -151,12 +178,12 @@ html, body {
 }
 
 .touch-btn.touch-dir#btn-left {
-    left: 41.67%;
+    left: 37.5%;
     transform: translateX(-50%);
 }
 
 .touch-btn.touch-dir#btn-right {
-    left: 58.33%;
+    left: 62.5%;
     transform: translateX(-50%);
 }
 
@@ -248,7 +275,8 @@ html, body {
         max-height: 768px;
     }
 
-    #touch-controls {
+    #touch-controls,
+    #touch-controls-top {
         width: 96vw;
         max-width: 672px;
     }
