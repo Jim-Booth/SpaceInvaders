@@ -81,9 +81,13 @@ window.gameInterop = {
         controlsDiv.id = 'touch-controls';
         controlsDiv.innerHTML = `
             <div class="touch-row">
-                <button class="touch-btn touch-move" id="btn-left">&#9664;</button>
+                <div class="touch-slider" id="touch-slider">
+                    <div class="slider-zone slider-zone-left">&#9664;</div>
+                    <div class="slider-zone slider-zone-center">&#x2022;</div>
+                    <div class="slider-zone slider-zone-right">&#9654;</div>
+                    <div class="slider-thumb" id="slider-thumb"></div>
+                </div>
                 <button class="touch-btn touch-fire" id="btn-fire">FIRE</button>
-                <button class="touch-btn touch-move" id="btn-right">&#9654;</button>
             </div>
             <div class="touch-row">
                 <button class="touch-btn touch-action" id="btn-1p">1P</button>
@@ -95,11 +99,98 @@ window.gameInterop = {
         // Insert after the canvas
         this.canvas.parentNode.insertBefore(controlsDiv, this.canvas.nextSibling);
 
-        // Bind touch/mouse events to each button
-        // Maps button id to the key string expected by SpaceInvadersEmulator.MapKey()
+        // --- Directional slider logic ---
+        const slider = document.getElementById('touch-slider');
+        const thumb = document.getElementById('slider-thumb');
+        let sliderDirection = null; // null, 'ArrowLeft', or 'ArrowRight'
+
+        const updateSliderDirection = (clientX) => {
+            const rect = slider.getBoundingClientRect();
+            const relX = clientX - rect.left;
+            const pct = relX / rect.width;
+
+            // Move the thumb visual
+            const clampedPct = Math.max(0, Math.min(1, pct));
+            thumb.style.left = (clampedPct * 100) + '%';
+
+            // Determine zone: left third / center third / right third
+            let newDir = null;
+            if (pct < 0.33) {
+                newDir = 'ArrowLeft';
+                slider.className = 'touch-slider active-left';
+            } else if (pct > 0.67) {
+                newDir = 'ArrowRight';
+                slider.className = 'touch-slider active-right';
+            } else {
+                newDir = null;
+                slider.className = 'touch-slider active-center';
+            }
+
+            // Only send events when direction changes
+            if (newDir !== sliderDirection) {
+                // Release previous direction
+                if (sliderDirection && this.dotNetHelper) {
+                    this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', sliderDirection);
+                }
+                // Press new direction
+                if (newDir && this.dotNetHelper) {
+                    this.dotNetHelper.invokeMethodAsync('OnTouchKeyDown', newDir);
+                }
+                sliderDirection = newDir;
+            }
+        };
+
+        const resetSlider = () => {
+            if (sliderDirection && this.dotNetHelper) {
+                this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', sliderDirection);
+            }
+            sliderDirection = null;
+            slider.className = 'touch-slider';
+            thumb.style.left = '50%';
+        };
+
+        // Touch events for slider
+        slider.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            updateSliderDirection(e.touches[0].clientX);
+        }, { passive: false });
+
+        slider.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            updateSliderDirection(e.touches[0].clientX);
+        }, { passive: false });
+
+        slider.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            resetSlider();
+        }, { passive: false });
+
+        slider.addEventListener('touchcancel', (e) => {
+            e.preventDefault();
+            resetSlider();
+        }, { passive: false });
+
+        // Mouse events for slider (desktop testing)
+        let sliderMouseDown = false;
+        slider.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            sliderMouseDown = true;
+            updateSliderDirection(e.clientX);
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (sliderMouseDown) {
+                updateSliderDirection(e.clientX);
+            }
+        });
+        document.addEventListener('mouseup', () => {
+            if (sliderMouseDown) {
+                sliderMouseDown = false;
+                resetSlider();
+            }
+        });
+
+        // --- Simple button bindings (fire, coin, 1p, 2p) ---
         const buttonKeyMap = {
-            'btn-left':  'ArrowLeft',
-            'btn-right': 'ArrowRight',
             'btn-fire':  ' ',
             'btn-coin':  'c',
             'btn-1p':    '1',
