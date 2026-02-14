@@ -103,31 +103,66 @@ window.gameInterop = {
         const slider = document.getElementById('touch-slider');
         const thumb = document.getElementById('slider-thumb');
         let sliderDirection = null; // null, 'ArrowLeft', or 'ArrowRight'
-        let sliderStartX = null;    // clientX when touch/mouse began
+        let lastTurnX = null;       // reference point for detecting direction change
+        let peakX = null;           // furthest X reached in current direction
+        let sliderOriginX = null;   // initial touch X for visual thumb positioning
         const SLIDER_DEADZONE = 3;  // pixels of movement before direction triggers
 
         const updateSliderDirection = (clientX) => {
-            if (sliderStartX === null) return;
+            if (lastTurnX === null) return;
 
-            const delta = clientX - sliderStartX;
             const rect = slider.getBoundingClientRect();
 
-            // Move the thumb visual relative to center based on delta
+            // Move the thumb visual relative to center based on total delta from origin
+            const totalDelta = clientX - sliderOriginX;
             const centerPct = 50;
-            const deltaPct = (delta / rect.width) * 100;
+            const deltaPct = (totalDelta / rect.width) * 100;
             const clampedPct = Math.max(0, Math.min(100, centerPct + deltaPct));
             thumb.style.left = clampedPct + '%';
 
-            // Determine direction based on movement delta from start
-            let newDir = null;
-            if (delta < -SLIDER_DEADZONE) {
-                newDir = 'ArrowLeft';
+            // Calculate delta from the last turning point
+            const delta = clientX - lastTurnX;
+
+            // Update peak to track the furthest point in the current direction
+            if (sliderDirection === 'ArrowRight') {
+                if (clientX > peakX) peakX = clientX;
+            } else if (sliderDirection === 'ArrowLeft') {
+                if (clientX < peakX) peakX = clientX;
+            } else {
+                // No direction yet — track both extremes via lastTurnX
+                if (clientX > peakX) peakX = clientX;
+                if (clientX < peakX && (peakX - clientX) > (clientX - lastTurnX)) {
+                    // Reset: we haven't committed to a direction yet
+                }
+            }
+
+            // Determine direction based on movement from turning point (or peak for reversals)
+            let newDir = sliderDirection;
+            if (sliderDirection === null) {
+                // No direction yet — simple delta from initial touch
+                if (delta > SLIDER_DEADZONE) {
+                    newDir = 'ArrowRight';
+                } else if (delta < -SLIDER_DEADZONE) {
+                    newDir = 'ArrowLeft';
+                }
+            } else if (sliderDirection === 'ArrowRight') {
+                // Currently going right — detect reversal from peak
+                if (peakX - clientX > SLIDER_DEADZONE) {
+                    newDir = 'ArrowLeft';
+                }
+            } else if (sliderDirection === 'ArrowLeft') {
+                // Currently going left — detect reversal from peak
+                if (clientX - peakX > SLIDER_DEADZONE) {
+                    newDir = 'ArrowRight';
+                }
+            }
+
+            // Apply styling
+            if (newDir === 'ArrowLeft') {
                 slider.className = 'touch-slider active-left';
-            } else if (delta > SLIDER_DEADZONE) {
-                newDir = 'ArrowRight';
+            } else if (newDir === 'ArrowRight') {
                 slider.className = 'touch-slider active-right';
             } else {
-                newDir = null;
                 slider.className = 'touch-slider active-center';
             }
 
@@ -142,6 +177,8 @@ window.gameInterop = {
                     this.dotNetHelper.invokeMethodAsync('OnTouchKeyDown', newDir);
                 }
                 sliderDirection = newDir;
+                // Reset peak to current position on direction change
+                peakX = clientX;
             }
         };
 
@@ -150,7 +187,9 @@ window.gameInterop = {
                 this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', sliderDirection);
             }
             sliderDirection = null;
-            sliderStartX = null;
+            lastTurnX = null;
+            peakX = null;
+            sliderOriginX = null;
             slider.className = 'touch-slider';
             thumb.style.left = '50%';
         };
@@ -158,7 +197,10 @@ window.gameInterop = {
         // Touch events for slider
         slider.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            sliderStartX = e.touches[0].clientX;
+            const x = e.touches[0].clientX;
+            lastTurnX = x;
+            peakX = x;
+            sliderOriginX = x;
             thumb.style.left = '50%';
             slider.className = 'touch-slider active-center';
         }, { passive: false });
@@ -183,7 +225,10 @@ window.gameInterop = {
         slider.addEventListener('mousedown', (e) => {
             e.preventDefault();
             sliderMouseDown = true;
-            sliderStartX = e.clientX;
+            const x = e.clientX;
+            lastTurnX = x;
+            peakX = x;
+            sliderOriginX = x;
             thumb.style.left = '50%';
             slider.className = 'touch-slider active-center';
         });
