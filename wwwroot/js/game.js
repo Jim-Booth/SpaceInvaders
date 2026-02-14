@@ -115,10 +115,10 @@ window.gameInterop = {
 
             // Determine zone: left / narrow center deadzone / right
             let newDir = null;
-            if (pct < 0.45) {
+            if (pct < 0.47) {
                 newDir = 'ArrowLeft';
                 slider.className = 'touch-slider active-left';
-            } else if (pct > 0.55) {
+            } else if (pct > 0.53) {
                 newDir = 'ArrowRight';
                 slider.className = 'touch-slider active-right';
             } else {
