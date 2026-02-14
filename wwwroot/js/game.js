@@ -113,12 +113,12 @@ window.gameInterop = {
             const clampedPct = Math.max(0, Math.min(1, pct));
             thumb.style.left = (clampedPct * 100) + '%';
 
-            // Determine zone: left third / center third / right third
+            // Determine zone: left / narrow center deadzone / right
             let newDir = null;
-            if (pct < 0.33) {
+            if (pct < 0.45) {
                 newDir = 'ArrowLeft';
                 slider.className = 'touch-slider active-left';
-            } else if (pct > 0.67) {
+            } else if (pct > 0.55) {
                 newDir = 'ArrowRight';
                 slider.className = 'touch-slider active-right';
             } else {
