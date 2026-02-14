@@ -151,12 +151,12 @@ html, body {
 }
 
 .touch-btn.touch-dir#btn-left {
-    left: 33.33%;
+    left: 41.67%;
     transform: translateX(-50%);
 }
 
 .touch-btn.touch-dir#btn-right {
-    left: 66.67%;
+    left: 58.33%;
     transform: translateX(-50%);
 }
 
