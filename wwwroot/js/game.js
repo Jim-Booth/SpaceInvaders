@@ -106,10 +106,25 @@ window.gameInterop = {
         let lastTurnX = null;       // reference point for detecting direction change
         let peakX = null;           // furthest X reached in current direction
         let sliderOriginX = null;   // initial touch X for visual thumb positioning
+        let stopTimer = null;       // timer to detect when slider movement stops
         const SLIDER_DEADZONE = 3;  // pixels of movement before direction triggers
+        const STOP_DELAY = 80;      // ms of no movement before releasing button
+
+        const clearDirection = () => {
+            if (sliderDirection && this.dotNetHelper) {
+                this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', sliderDirection);
+            }
+            sliderDirection = null;
+            peakX = null;
+            slider.className = 'touch-slider active-center';
+        };
 
         const updateSliderDirection = (clientX) => {
             if (lastTurnX === null) return;
+
+            // Reset stop timer — movement is happening
+            if (stopTimer) clearTimeout(stopTimer);
+            stopTimer = setTimeout(clearDirection, STOP_DELAY);
 
             const rect = slider.getBoundingClientRect();
 
@@ -183,6 +198,7 @@ window.gameInterop = {
         };
 
         const resetSlider = () => {
+            if (stopTimer) { clearTimeout(stopTimer); stopTimer = null; }
             if (sliderDirection && this.dotNetHelper) {
                 this.dotNetHelper.invokeMethodAsync('OnTouchKeyUp', sliderDirection);
             }
