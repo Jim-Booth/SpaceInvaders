@@ -69,7 +69,7 @@ window.gameInterop = {
     initializeTouchControls: function(dotNetHelper) {
         this.dotNetHelper = dotNetHelper;
 
-        if (!this.isMobile()) return;
+        //if (!this.isMobile()) return;
 
         if (!this.canvas) {
             console.error('Canvas not found - cannot create touch controls');
