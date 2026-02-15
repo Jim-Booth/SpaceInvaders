@@ -19,7 +19,7 @@ namespace SpaceInvaders
         private readonly HttpClient _http;
         private Intel8080? _cpu;
         
-        private const int ScreenWidth = 224;
+        private const int ScreenWidth = 223;
         private const int ScreenHeight = 256;
         
         private readonly byte[] _rgbaBuffer;

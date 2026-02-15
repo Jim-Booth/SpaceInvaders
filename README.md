@@ -34,10 +34,8 @@ Then open your browser to `https://localhost:5443` or `http://localhost:5000`.
 | **C** | Insert Coin |
 | **1** | 1 Player Start |
 | **2** | 2 Player Start |
-| **←** / **→** | Move (Player 1) |
-| **Space** | Fire (Player 1) |
-| **A** / **D** | Move (Player 2) |
-| **W** | Fire (Player 2) |
+| **←** / **→** | Move |
+| **Space** | Fire |
 
 ### Mobile (Touch Controls)
 
@@ -45,8 +43,8 @@ On mobile devices a set of on-screen touch buttons is displayed below the game s
 
 | Row | Buttons |
 |-----|---------|
-| **Top** | **◀** (move left) · **FIRE** · **▶** (move right) |
-| **Bottom** | **1P** (1 player start) · **COIN** (insert coin) · **2P** (2 player start) |
+| **Top** | **1P** (1 player start) · **COIN** (insert coin) · **2P** (2 player start) |
+| **Bottom** | **◀** (move left) · **FIRE** · **▶** (move right) |
 
 Mobile detection is automatic — touch controls appear only on phones and tablets, while desktop users continue to use the keyboard as normal.
 
@@ -81,6 +79,7 @@ Place WAV sound files in the `wwwroot/sounds/` directory:
 SpaceInvaders/
 ├── Program.cs                  # Blazor WASM entry point
 ├── App.razor                   # Root Blazor component
+├── _Imports.razor              # Global Razor imports
 ├── SpaceInvadersEmulator.cs    # Emulator wrapper with Canvas rendering
 ├── Pages/
 │   └── Index.razor             # Main game page

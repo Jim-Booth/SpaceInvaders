@@ -46,7 +46,8 @@
     
     @if (!_isLoading)
     {
-        <div class="version-label">version: @_versionString</div>
+        <div class="version-label">Space Invaders is © Taito Corporation.</div>
+        <div class="version-label">This emulator is for educational purposes only.</div>
     }
 
     <div class="canvas-wrapper">
@@ -90,7 +91,7 @@
         {
             _emulator = new SpaceInvadersEmulator(JS, Http);
             
-            _loadingMessage = "Loading ROMs...";
+            _loadingMessage = "Loading game...";
             StateHasChanged();
             
             await _emulator.InitializeAsync();
