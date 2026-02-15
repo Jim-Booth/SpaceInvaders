@@ -127,9 +127,10 @@ namespace SpaceInvaders
         
         private byte[] ConvertVideoToRgba()
         {
-            if (_cpu == null) return new byte[ScreenWidth * ScreenHeight * 4];
-            
             byte[] _rgbaBuffer = new byte[ScreenWidth * ScreenHeight * 4];
+            
+            if (_cpu == null) return _rgbaBuffer;
+            
             ReadOnlySpan<byte> video = _cpu.Video.AsSpan();
             
             int ptr = 0;
