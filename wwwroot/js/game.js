@@ -59,17 +59,11 @@ window.gameInterop = {
         }
     },
 
-    // Check if the device is mobile / touch-capable
-    isMobile: function() {
-        return /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-            || (navigator.maxTouchPoints && navigator.maxTouchPoints > 1);
-    },
-
     // Initialize on-screen touch controls for mobile devices
     initializeTouchControls: function(dotNetHelper) {
         this.dotNetHelper = dotNetHelper;
 
-        //if (!this.isMobile()) return;
+        if (!this.isMobile()) return;
 
         if (!this.canvas) {
             console.error('Canvas not found - cannot create touch controls');
