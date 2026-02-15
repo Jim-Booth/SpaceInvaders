@@ -32,6 +32,104 @@ html, body {
     margin-bottom: 1rem;
 }
 
+/* Missing file messages on loading screen */
+.missing-files {
+    text-align: left;
+    max-width: 500px;
+    margin: 1.5rem auto 0;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+}
+
+.missing-files h2 {
+    font-size: 1rem;
+    margin: 0 0 0.5rem;
+    letter-spacing: 2px;
+}
+
+.missing-files ul {
+    list-style: none;
+    padding: 0;
+    margin: 0.5rem 0;
+}
+
+.missing-files ul li::before {
+    content: "\2718  ";
+    margin-right: 0.25rem;
+}
+
+.missing-files p {
+    margin: 0.4rem 0;
+}
+
+.missing-files .missing-hint {
+    margin-top: 0.75rem;
+    opacity: 0.7;
+    font-size: 0.8rem;
+}
+
+.missing-files code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
+}
+
+.missing-error {
+    border: 1px solid rgba(255, 60, 60, 0.5);
+    background: rgba(255, 60, 60, 0.1);
+    color: #ff6b6b;
+}
+
+.missing-error h2 {
+    color: #ff4444;
+}
+
+.missing-error ul li::before {
+    color: #ff4444;
+}
+
+.missing-warning {
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    background: rgba(255, 215, 0, 0.08);
+    color: #ffd700;
+}
+
+.missing-warning h2 {
+    color: #ffc107;
+}
+
+.missing-warning ul li::before {
+    color: #ffc107;
+}
+
+.acknowledge-btn {
+    display: block;
+    margin: 1rem auto 0;
+    padding: 0.6rem 1.5rem;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: #000;
+    background: #ffd700;
+    border: 2px solid #ffc107;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+.acknowledge-btn:hover {
+    background: #ffea00;
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.5);
+}
+
+.acknowledge-btn:active {
+    background: #ffc107;
+}
+
 .game-container {
     display: flex;
     flex-direction: column;
@@ -295,5 +393,9 @@ html, body {
     
     .loading p {
         font-size: 3vw;
+    }
+    
+    .missing-files {
+        max-width: 90vw;
     }
 }

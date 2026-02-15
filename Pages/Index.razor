@@ -41,6 +41,35 @@
             </svg>
             <h1>SPACE INVADERS</h1>
             <p>@_loadingMessage</p>
+            
+            @if (_missingRoms.Count > 0)
+            {
+                <div class="missing-files missing-error">
+                    <h2>ROM FILES MISSING</h2>
+                    <p>The following ROM files are required to run the emulator:</p>
+                    <ul>
+                        @foreach (var rom in _missingRoms)
+                        {
+                            <li>@rom</li>
+                        }
+                    </ul>
+                </div>
+            }
+            
+            @if (_missingSounds.Count > 0)
+            {
+                <div class="missing-files missing-warning">
+                    <h2>SOUND FILES MISSING</h2>
+                    <p>The following sound files were not found. The game will run without sound:</p>
+                    <ul>
+                        @foreach (var sound in _missingSounds)
+                        {
+                            <li>@sound</li>
+                        }
+                    </ul>
+                    <button class="acknowledge-btn" @onclick="AcknowledgeSoundWarning">CONTINUE WITHOUT SOUND</button>
+                </div>
+            }
         </div>
     }
     
@@ -71,6 +100,9 @@
     private bool _hasInitialized;
     private DotNetObjectReference<Index>? _dotNetRef;
     private string _versionString = typeof(Index).Assembly.GetName().Version?.ToString(3) ?? "0.0";
+    private List<string> _missingRoms = new();
+    private List<string> _missingSounds = new();
+    private TaskCompletionSource? _soundWarningAcknowledged;
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -94,10 +126,32 @@
             _loadingMessage = "Loading game...";
             StateHasChanged();
             
-            await _emulator.InitializeAsync();
+            var success = await _emulator.InitializeAsync();
             
-            // Extra delay to show loading screen
-            await Task.Delay(1000);
+            _missingRoms = _emulator.MissingRoms;
+            _missingSounds = _emulator.MissingSounds;
+            
+            if (!success)
+            {
+                // ROMs are missing — stay on loading screen with error
+                _loadingMessage = "Unable to start the emulator.";
+                StateHasChanged();
+                return;
+            }
+            
+            if (_missingSounds.Count > 0)
+            {
+                // Wait for player to acknowledge the sound warning
+                _loadingMessage = "";
+                _soundWarningAcknowledged = new TaskCompletionSource();
+                StateHasChanged();
+                await _soundWarningAcknowledged.Task;
+            }
+            else
+            {
+                // Extra delay to show loading screen
+                await Task.Delay(1000);
+            }
             
             _isLoading = false;
             StateHasChanged();
@@ -146,6 +200,11 @@
     private void OnKeyUp(KeyboardEventArgs e)
     {
         _emulator?.KeyUp(e.Key);
+    }
+    
+    private void AcknowledgeSoundWarning()
+    {
+        _soundWarningAcknowledged?.TrySetResult();
     }
     
     [JSInvokable]

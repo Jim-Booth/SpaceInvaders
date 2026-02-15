@@ -37,6 +37,8 @@ namespace SpaceInvaders
         private const byte RedR = 0xFF, RedG = 0x10, RedB = 0x50;
         
         public bool IsInitialized { get; private set; }
+        public List<string> MissingRoms { get; } = new();
+        public List<string> MissingSounds { get; } = new();
         
         public SpaceInvadersEmulator(IJSRuntime js, HttpClient http)
         {
@@ -63,18 +65,22 @@ namespace SpaceInvaders
             return lookup;
         }
         
-        public async Task InitializeAsync()
+        public async Task<bool> InitializeAsync()
         {
             // Initialize canvas
             await _js.InvokeVoidAsync("gameInterop.initialize", "gameCanvas", ScreenWidth, ScreenHeight);
             
-            // Load sounds
+            // Load sounds (non-critical)
             await LoadSoundsAsync();
             
-            // Load ROMs
+            // Load ROMs (critical)
             await LoadRomsAsync();
             
+            if (MissingRoms.Count > 0)
+                return false;
+            
             IsInitialized = true;
+            return true;
         }
         
         private async Task LoadSoundsAsync()
@@ -84,7 +90,23 @@ namespace SpaceInvaders
             
             foreach (var sound in sounds)
             {
-                await _js.InvokeVoidAsync("gameInterop.loadSound", sound, $"sounds/{sound}.wav");
+                var path = $"sounds/{sound}.wav";
+                try
+                {
+                    var response = await _http.GetAsync(path, HttpCompletionOption.ResponseHeadersRead);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        await _js.InvokeVoidAsync("gameInterop.loadSound", sound, path);
+                    }
+                    else
+                    {
+                        MissingSounds.Add($"{sound}.wav");
+                    }
+                }
+                catch
+                {
+                    MissingSounds.Add($"{sound}.wav");
+                }
             }
         }
         
@@ -92,15 +114,36 @@ namespace SpaceInvaders
         {
             _cpu = new Intel8080(new Memory(0x10000));
             
-            var romH = await _http.GetByteArrayAsync("roms/invaders.h");
-            var romG = await _http.GetByteArrayAsync("roms/invaders.g");
-            var romF = await _http.GetByteArrayAsync("roms/invaders.f");
-            var romE = await _http.GetByteArrayAsync("roms/invaders.e");
+            var romFiles = new (string Name, int Address)[] 
+            {
+                ("invaders.h", 0x0000),
+                ("invaders.g", 0x0800),
+                ("invaders.f", 0x1000),
+                ("invaders.e", 0x1800)
+            };
             
-            _cpu.Memory.LoadFromBytes(romH, 0x0000, 0x800);
-            _cpu.Memory.LoadFromBytes(romG, 0x0800, 0x800);
-            _cpu.Memory.LoadFromBytes(romF, 0x1000, 0x800);
-            _cpu.Memory.LoadFromBytes(romE, 0x1800, 0x800);
+            var romData = new Dictionary<string, byte[]>();
+            
+            foreach (var (name, _) in romFiles)
+            {
+                try
+                {
+                    var data = await _http.GetByteArrayAsync($"roms/{name}");
+                    romData[name] = data;
+                }
+                catch
+                {
+                    MissingRoms.Add(name);
+                }
+            }
+            
+            if (MissingRoms.Count > 0)
+                return;
+            
+            foreach (var (name, address) in romFiles)
+            {
+                _cpu.Memory.LoadFromBytes(romData[name], address, 0x800);
+            }
             
             _cpu.Running = true;
         }
@@ -128,7 +171,7 @@ namespace SpaceInvaders
         private byte[] ConvertVideoToRgba()
         {
             byte[] _rgbaBuffer = new byte[ScreenWidth * ScreenHeight * 4];
-            
+
             if (_cpu == null) return _rgbaBuffer;
             
             ReadOnlySpan<byte> video = _cpu.Video.AsSpan();
