@@ -152,44 +152,33 @@ html, body {
 }
 
 .touch-row-direction {
-    transform: translateX(-61px);
+    justify-content: center;
+    gap: 16px;
 }
 
 /* --- Direction buttons --- */
 
 .direction-controls {
-    flex: 1 1 0;
-    min-width: 0;
-    position: relative;
+    flex: none;
+    width: 45%;
     display: flex;
+    gap: 16px;
     touch-action: none;
     -webkit-tap-highlight-color: transparent;
     height: 56px;
 }
 
 .touch-btn.touch-dir {
-    position: absolute;
-    width: 30%;
+    flex: 1;
     height: 100%;
     font-size: 1.3rem;
     user-select: none;
     -webkit-user-select: none;
-    flex: none;
-}
-
-.touch-btn.touch-dir#btn-left {
-    left: 32.5%;
-    transform: translateX(-50%);
-}
-
-.touch-btn.touch-dir#btn-right {
-    left: 67.5%;
-    transform: translateX(-50%);
 }
 
 .touch-btn.touch-fire {
     flex: none;
-    width: calc((100% - 16px) / 3);
+    width: 20%;
     font-size: 1.2rem;
     color: #ff4444;
     border-color: rgba(255, 68, 68, 0.4);
@@ -279,10 +268,6 @@ html, body {
     #touch-controls-top {
         width: 96vw;
         max-width: 672px;
-    }
-
-    .direction-controls {
-        height: auto;
     }
 
     .touch-btn.touch-dir {
