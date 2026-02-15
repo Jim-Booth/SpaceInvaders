@@ -22,7 +22,6 @@ namespace SpaceInvaders
         private const int ScreenWidth = 223;
         private const int ScreenHeight = 256;
         
-        private readonly byte[] _rgbaBuffer;
         private readonly byte[] _colorLookup;
         private readonly byte[] _inputPorts = [0x0E, 0x08, 0x00, 0x00];
         
@@ -43,7 +42,6 @@ namespace SpaceInvaders
         {
             _js = js;
             _http = http;
-            _rgbaBuffer = new byte[ScreenWidth * ScreenHeight * 4];
             _colorLookup = BuildColorLookup();
         }
         
@@ -115,7 +113,7 @@ namespace SpaceInvaders
             _cpu.RunFrame();
             
             // Convert video memory to RGBA
-            ConvertVideoToRgba();
+            byte[] _rgbaBuffer = ConvertVideoToRgba();
             
             // Send to canvas
             await _js.InvokeVoidAsync("gameInterop.drawFrame", _rgbaBuffer);
@@ -127,11 +125,11 @@ namespace SpaceInvaders
             _cpu.PortIn = _inputPorts;
         }
         
-        private void ConvertVideoToRgba()
+        private byte[] ConvertVideoToRgba()
         {
-            if (_cpu == null) return;
+            if (_cpu == null) return new byte[ScreenWidth * ScreenHeight * 4];
             
-            Array.Clear(_rgbaBuffer);
+            byte[] _rgbaBuffer = new byte[ScreenWidth * ScreenHeight * 4];
             ReadOnlySpan<byte> video = _cpu.Video.AsSpan();
             
             int ptr = 0;
@@ -182,6 +180,7 @@ namespace SpaceInvaders
                     }
                 }
             }
+            return _rgbaBuffer;
         }
         
         private async Task CheckSoundsAsync()
