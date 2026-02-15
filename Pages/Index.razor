@@ -44,12 +44,12 @@
         </div>
     }
     
+    @if (!_isLoading)
+    {
+        <div class="version-label">version: @_versionString</div>
+    }
+
     <div class="canvas-wrapper">
-        @if (!_isLoading)
-        {
-            <div class="version-label">version: @_versionString</div>
-        }
-        
         <canvas id="gameCanvas" style="display: @(_isLoading ? "none" : "block")"></canvas>
     </div>
     
