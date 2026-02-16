@@ -25,6 +25,16 @@ namespace SpaceInvaders
         private readonly byte[] _colorLookup;
         private readonly byte[] _inputPorts = [0x0E, 0x08, 0x00, 0x00];
         
+        // Pre-allocated frame buffer to avoid ~223KB allocation per frame (~13MB/s GC pressure at 60fps)
+        private readonly byte[] _rgbaBuffer = new byte[ScreenWidth * ScreenHeight * 4];
+        
+        // Snapshot of previous video memory for dirty-checking (skip render when unchanged)
+        private readonly byte[] _prevVideo = new byte[ScreenWidth * 32];
+        private bool _firstFrame = true;
+        
+        // Reusable list for batching sound triggers into a single JS interop call per frame
+        private readonly List<string> _soundBatch = new(4);
+        
         private byte _prevPort3;
         private byte _prevPort5;
         
@@ -35,6 +45,15 @@ namespace SpaceInvaders
         private const byte WhiteR = 0xE8, WhiteG = 0xEC, WhiteB = 0xFF;
         // Red for UFO area
         private const byte RedR = 0xFF, RedG = 0x10, RedB = 0x50;
+        
+        // Pre-computed RGBA color table indexed by color zone (0=White, 1=Green, 2=Red)
+        // Each entry: [R, G, B, A] — eliminates per-pixel switch branching
+        private static readonly byte[][] ColorTable =
+        [
+            [WhiteR, WhiteG, WhiteB, 255],
+            [GreenR, GreenG, GreenB, 255],
+            [RedR,   RedG,   RedB,   255]
+        ];
         
         public bool IsInitialized { get; private set; }
         public List<string> MissingRoms { get; } = new();
@@ -155,26 +174,38 @@ namespace SpaceInvaders
             // Run one frame of CPU cycles
             _cpu.RunFrame();
             
-            // Convert video memory to RGBA
-            byte[] _rgbaFrameBuffer = DrawRGBAVideoFrame();
+            // Only render and send frame if video memory has changed
+            ReadOnlySpan<byte> video = _cpu.Video.AsSpan(0, ScreenWidth * 32);
+            bool videoChanged = _firstFrame || !video.SequenceEqual(_prevVideo);
             
-            // Send to canvas
-            await _js.InvokeVoidAsync("gameInterop.drawFrame", _rgbaFrameBuffer);
+            if (videoChanged)
+            {
+                _firstFrame = false;
+                video.CopyTo(_prevVideo);
+                
+                // Convert video memory to RGBA (reuses pre-allocated buffer)
+                DrawRGBAVideoFrame(video);
+                
+                // Send frame to canvas
+                await _js.InvokeVoidAsync("gameInterop.drawFrame", _rgbaBuffer);
+            }
             
-            // Check sound triggers
-            await CheckSoundsAsync();
+            // Batch sound triggers into a single JS interop call
+            CollectSoundTriggers();
+            if (_soundBatch.Count > 0)
+            {
+                await _js.InvokeVoidAsync("gameInterop.playSounds", _soundBatch);
+                _soundBatch.Clear();
+            }
             
             // Update input ports
             _cpu.PortIn = _inputPorts;
         }
         
-        private byte[] DrawRGBAVideoFrame()
+        private void DrawRGBAVideoFrame(ReadOnlySpan<byte> video)
         {
-            byte[] _rgbaBuffer = new byte[ScreenWidth * ScreenHeight * 4];
-
-            if (_cpu == null) return _rgbaBuffer;
-            
-            ReadOnlySpan<byte> video = _cpu.Video.AsSpan();
+            // Clear the pre-allocated buffer (all pixels to transparent black)
+            Array.Clear(_rgbaBuffer);
             
             int ptr = 0;
             for (int col = 0; col < ScreenWidth; col++)
@@ -184,85 +215,61 @@ namespace SpaceInvaders
                     byte value = video[ptr++];
                     if (value == 0) continue;
                     
+                    // Hoist color lookup out of the bit loop — colorY is constant per byteRow
+                    int colorY = ScreenHeight - (byteRow * 8);
+                    if (colorY >= ScreenHeight) colorY = ScreenHeight - 1;
+                    else if (colorY < 0) colorY = 0;
+                    
+                    // Determine color zone (special case: lives area with X < 127 is green)
+                    byte colorZone = (colorY > 240 && col < 127) ? (byte)1 : _colorLookup[colorY];
+                    byte[] rgba = ColorTable[colorZone];
+                    
                     for (int bit = 0; bit < 8; bit++)
                     {
                         if ((value & (1 << bit)) == 0) continue;
                         
-                        int videoY = byteRow * 8 + bit;
-                        int screenY = 255 - videoY;
+                        int screenY = 255 - (byteRow * 8 + bit);
                         if (screenY < 0 || screenY >= ScreenHeight) continue;
                         
-                        // Color lookup
-                        int colorY = ScreenHeight - (byteRow * 8);
-                        if (colorY >= ScreenHeight) colorY = ScreenHeight - 1;
-                        if (colorY < 0) colorY = 0;
-                        
-                        // Determine color zone (special case: lives area with X < 127 is green)
-                        byte colorZone = (colorY > 240 && col < 127) ? (byte)1 : _colorLookup[colorY];
-                        
-                        // Write RGBA pixel based on color zone
+                        // Write RGBA pixel from pre-computed color table
                         int idx = (screenY * ScreenWidth + col) * 4;
-                        switch (colorZone)
-                        {
-                            case 1: // Green
-                                _rgbaBuffer[idx + 0] = GreenR;
-                                _rgbaBuffer[idx + 1] = GreenG;
-                                _rgbaBuffer[idx + 2] = GreenB;
-                                break;
-                            case 2: // Red
-                                _rgbaBuffer[idx + 0] = RedR;
-                                _rgbaBuffer[idx + 1] = RedG;
-                                _rgbaBuffer[idx + 2] = RedB;
-                                break;
-                            default: // White
-                                _rgbaBuffer[idx + 0] = WhiteR;
-                                _rgbaBuffer[idx + 1] = WhiteG;
-                                _rgbaBuffer[idx + 2] = WhiteB;
-                                break;
-                        }
-                        _rgbaBuffer[idx + 3] = 255; // Alpha
+                        _rgbaBuffer[idx]     = rgba[0];
+                        _rgbaBuffer[idx + 1] = rgba[1];
+                        _rgbaBuffer[idx + 2] = rgba[2];
+                        _rgbaBuffer[idx + 3] = rgba[3];
                     }
                 }
             }
-            return _rgbaBuffer;
         }
         
-        private async Task CheckSoundsAsync()
+        private void CollectSoundTriggers()
         {
             if (_cpu == null) return;
             
             byte port3 = _cpu.PortOut[3];
             byte port5 = _cpu.PortOut[5];
             
-            // Port 3 sounds
+            // Port 3 sounds — collect triggered sound IDs
             if (port3 != _prevPort3)
             {
-                if (((port3 & 0x01) != 0) && ((port3 & 0x01) != (_prevPort3 & 0x01)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "ufo_lowpitch");
-                if (((port3 & 0x02) != 0) && ((port3 & 0x02) != (_prevPort3 & 0x02)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "shoot");
-                if (((port3 & 0x04) != 0) && ((port3 & 0x04) != (_prevPort3 & 0x04)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "explosion");
-                if (((port3 & 0x08) != 0) && ((port3 & 0x08) != (_prevPort3 & 0x08)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "invaderkilled");
-                if (((port3 & 0x10) != 0) && ((port3 & 0x10) != (_prevPort3 & 0x10)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "extendedPlay");
+                byte rising3 = (byte)(port3 & ~_prevPort3); // bits that transitioned 0?1
+                if ((rising3 & 0x01) != 0) _soundBatch.Add("ufo_lowpitch");
+                if ((rising3 & 0x02) != 0) _soundBatch.Add("shoot");
+                if ((rising3 & 0x04) != 0) _soundBatch.Add("explosion");
+                if ((rising3 & 0x08) != 0) _soundBatch.Add("invaderkilled");
+                if ((rising3 & 0x10) != 0) _soundBatch.Add("extendedPlay");
             }
             _prevPort3 = port3;
             
-            // Port 5 sounds
+            // Port 5 sounds — collect triggered sound IDs
             if (port5 != _prevPort5)
             {
-                if (((port5 & 0x01) != 0) && ((port5 & 0x01) != (_prevPort5 & 0x01)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "fastinvader1");
-                if (((port5 & 0x02) != 0) && ((port5 & 0x02) != (_prevPort5 & 0x02)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "fastinvader2");
-                if (((port5 & 0x04) != 0) && ((port5 & 0x04) != (_prevPort5 & 0x04)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "fastinvader3");
-                if (((port5 & 0x08) != 0) && ((port5 & 0x08) != (_prevPort5 & 0x08)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "fastinvader4");
-                if (((port5 & 0x10) != 0) && ((port5 & 0x10) != (_prevPort5 & 0x10)))
-                    await _js.InvokeVoidAsync("gameInterop.playSound", "explosion");
+                byte rising5 = (byte)(port5 & ~_prevPort5); // bits that transitioned 0?1
+                if ((rising5 & 0x01) != 0) _soundBatch.Add("fastinvader1");
+                if ((rising5 & 0x02) != 0) _soundBatch.Add("fastinvader2");
+                if ((rising5 & 0x04) != 0) _soundBatch.Add("fastinvader3");
+                if ((rising5 & 0x08) != 0) _soundBatch.Add("fastinvader4");
+                if ((rising5 & 0x10) != 0) _soundBatch.Add("explosion");
             }
             _prevPort5 = port5;
         }

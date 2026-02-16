@@ -56,6 +56,15 @@ window.gameInterop = {
             clone.play().catch(e => {
                 // Ignore autoplay errors - user hasn't interacted yet
             });
+            // Remove the clone from the DOM once it finishes to prevent node leaks
+            clone.addEventListener('ended', () => clone.remove(), { once: true });
+        }
+    },
+    
+    // Play multiple sounds in a single interop call (batched)
+    playSounds: function(ids) {
+        for (const id of ids) {
+            this.playSound(id);
         }
     },
 
