@@ -156,10 +156,10 @@ namespace SpaceInvaders
             _cpu.RunFrame();
             
             // Convert video memory to RGBA
-            byte[] _rgbaBuffer = ConvertVideoToRgba();
+            byte[] _rgbaFrameBuffer = DrawRGBAVideoFrame();
             
             // Send to canvas
-            await _js.InvokeVoidAsync("gameInterop.drawFrame", _rgbaBuffer);
+            await _js.InvokeVoidAsync("gameInterop.drawFrame", _rgbaFrameBuffer);
             
             // Check sound triggers
             await CheckSoundsAsync();
@@ -168,7 +168,7 @@ namespace SpaceInvaders
             _cpu.PortIn = _inputPorts;
         }
         
-        private byte[] ConvertVideoToRgba()
+        private byte[] DrawRGBAVideoFrame()
         {
             byte[] _rgbaBuffer = new byte[ScreenWidth * ScreenHeight * 4];
 
