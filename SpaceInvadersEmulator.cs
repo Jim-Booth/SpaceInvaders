@@ -60,15 +60,11 @@ namespace SpaceInvaders
             [RedR,   RedG,   RedB,   255]
         ];
         
-        public bool IsInitialized { get; private set; }
         public List<string> MissingRoms { get; } = new();
         public List<string> MissingSounds { get; } = new();
 
         /// <summary>Reads the current high score from the ROM's BCD RAM (0x20F4-0x20F5).</summary>
         public int GetHighScore() => _cpu?.Memory.ReadHighScore() ?? 0;
-
-        /// <summary>Seeds the ROM's high score RAM so the game displays the persisted value from the start.</summary>
-        public void WriteHighScore(int score) => _cpu?.Memory.WriteHighScore(score);
 
         /// <summary>
         /// While the ROM is in attract mode (0x20EF == 0) and the high score has not yet
@@ -141,7 +137,6 @@ namespace SpaceInvaders
             if (MissingRoms.Count > 0)
                 return false;
             
-            IsInitialized = true;
             return true;
         }
         

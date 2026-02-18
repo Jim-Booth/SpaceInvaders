@@ -151,7 +151,7 @@ html, body {
     outline: none;
 }
 
-.version-label {
+.copyright-label {
     width: 100%;
     text-align: center;
     font-size: 0.85rem;
@@ -427,5 +427,9 @@ html, body {
     
     .missing-files {
         max-width: 90vw;
+    }
+
+    .copyright-label {
+        font-size: 0.51rem; /* 40% smaller than default 0.85rem */
     }
 }

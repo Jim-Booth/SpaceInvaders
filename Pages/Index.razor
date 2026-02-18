@@ -76,8 +76,8 @@
     
     @if (!_isLoading)
     {
-        <div class="version-label">Space Invaders is &copy; Taito Corporation.</div>
-        <div class="version-label">This emulator is for educational purposes only.</div>
+        <div class="copyright-label">Space Invaders is &copy; Taito Corporation.</div>
+        <div class="copyright-label">This emulator is for educational purposes only.</div>
     }
 
     <div class="canvas-wrapper">
@@ -104,7 +104,6 @@
     private ElementReference _containerRef;
     private bool _hasInitialized;
     private DotNetObjectReference<Index>? _dotNetRef;
-    private string _versionString = typeof(Index).Assembly.GetName().Version?.ToString(3) ?? "0.0";
     private List<string> _missingRoms = new();
     private List<string> _missingSounds = new();
     private TaskCompletionSource? _soundWarningAcknowledged;
