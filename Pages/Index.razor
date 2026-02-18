@@ -76,18 +76,22 @@
     
     @if (!_isLoading)
     {
-        <div class="version-label">Space Invaders is © Taito Corporation.</div>
+        <div class="version-label">Space Invaders is &copy; Taito Corporation.</div>
         <div class="version-label">This emulator is for educational purposes only.</div>
     }
 
     <div class="canvas-wrapper">
         <canvas id="gameCanvas" style="display: @(_isLoading ? "none" : "block")"></canvas>
+        @if (_isPaused)
+        {
+            <div class="pause-overlay">PAUSED</div>
+        }
     </div>
     
     @if (!_isLoading)
     {
         <div class="credit-hint">Press <span class="credit-key">C</span> to add credits and <span class="credit-key">1</span> or <span class="credit-key">2</span> players to start the game</div>
-        <div class="controls-hint">Arrow keys <span class="credit-key"><span class="btn-text arrow-text">&larr;</span></span> <span class="credit-key"><span class="btn-text arrow-text">&rarr;</span></span> to move and <span class="credit-key">SPACE BAR</span> to fire</div>
+        <div class="controls-hint">Arrow keys <span class="credit-key"><span class="btn-text arrow-text">&larr;</span></span> <span class="credit-key"><span class="btn-text arrow-text">&rarr;</span></span> to move and <span class="credit-key">SPACE BAR</span> to fire &middot; <span class="credit-key">P</span> to pause</div>
     }
 </div>
 
@@ -104,13 +108,16 @@
     private List<string> _missingRoms = new();
     private List<string> _missingSounds = new();
     private TaskCompletionSource? _soundWarningAcknowledged;
+    private bool _isPaused;
+    private int _highScore;
     
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // Wait for next render cycle to ensure canvas is in DOM
-            await Task.Delay(50);
+            // Wait for the browser to commit two paint frames, ensuring the canvas
+            // is fully in the DOM before initialization begins.
+            await JS.InvokeVoidAsync("gameInterop.waitForPaint");
             await InitializeEmulatorAsync();
         }
     }
@@ -161,14 +168,20 @@
             await Task.Delay(100);
             await _containerRef.FocusAsync();
             
-            // Initialize touch controls (passes a reference so JS can call back into C#)
+            // Initialize touch controls
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("gameInterop.initializeTouchControls", _dotNetRef);
-            
-            // Start game loop at ~60 FPS
+
+            // Start the rAF render loop (JS-side, VSync-locked)
+            await JS.InvokeVoidAsync("gameInterop.startRenderLoop");
+
+            // Load persisted high score from localStorage and seed into ROM RAM
+            _highScore = await JS.InvokeAsync<int>("gameInterop.getHighScore");
+            _emulator!.WriteHighScore(_highScore);
+
+            // Start the game logic loop at 60 Hz (C# PeriodicTimer)
             _cts = new CancellationTokenSource();
-            _gameLoop = new PeriodicTimer(TimeSpan.FromMilliseconds(16));
-            
+            _gameLoop = new PeriodicTimer(TimeSpan.FromMilliseconds(1000.0 / 60.0));
             _ = Task.Run(GameLoopAsync);
         }
         catch (Exception ex)
@@ -184,17 +197,37 @@
         {
             while (await _gameLoop!.WaitForNextTickAsync(_cts!.Token))
             {
-                await _emulator!.RunFrameAsync();
+                if (!_isPaused)
+                {
+                    await _emulator!.RunFrameAsync();
+
+                    // Save the high score to localStorage only once, on game-over.
+                    // The ROM sets 0x20EF (gameMode) to 0 when the game ends; IsGameOver()
+                    // detects the 1->0 transition so this fires exactly once per game.
+                    if (_emulator.IsGameOver())
+                    {
+                        int score = _emulator.GetHighScore();
+                        if (score > _highScore)
+                        {
+                            _highScore = score;
+                            await JS.InvokeVoidAsync("gameInterop.setHighScore", _highScore);
+                        }
+                    }
+                }
             }
         }
-        catch (OperationCanceledException)
-        {
-            // Expected on dispose
-        }
+        catch (OperationCanceledException) { /* expected on dispose */ }
     }
-    
+
     private void OnKeyDown(KeyboardEventArgs e)
     {
+        if (e.Key is "p" or "P")
+        {
+            _isPaused = !_isPaused;
+            _ = JS.InvokeVoidAsync(_isPaused ? "gameInterop.suspendAudio" : "gameInterop.resumeAudio");
+            StateHasChanged();
+            return;
+        }
         _emulator?.KeyDown(e.Key);
     }
     
@@ -220,12 +253,12 @@
         _emulator?.KeyUp(key);
     }
     
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         _cts?.Cancel();
         _gameLoop?.Dispose();
         _cts?.Dispose();
+        await JS.InvokeVoidAsync("gameInterop.stopRenderLoop");
         _dotNetRef?.Dispose();
-        return ValueTask.CompletedTask;
     }
 }

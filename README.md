@@ -9,8 +9,11 @@ A cross-platform Intel 8080 Space Invaders arcade emulator built with .NET 9 and
 - **Accurate Intel 8080 CPU emulation** - Full implementation of all 8080 opcodes
 - **Authentic display rendering** - Color zones matching original arcade cabinet (green, red, white)
 - **Browser-based** - Runs entirely in the browser using WebAssembly
-- **Authentic audio** - Sound effects via Web Audio API
+- **Authentic audio** - Sound effects via Web Audio API with correct UFO looping behaviour
 - **Cross-platform** - Runs on any modern browser (Chrome, Firefox, Safari, Edge)
+- **Mobile support** - On-screen touch controls for phones and tablets
+- **Pause** - Press **P** to pause and resume at any time
+- **Persistent high score** - High score is saved in browser `localStorage` and restored on next visit
 
 ## Prerequisites
 
@@ -36,6 +39,7 @@ Then open your browser to `https://localhost:5443` or `http://localhost:5000`.
 | **2** | 2 Player Start |
 | **←** / **→** | Move |
 | **Space** | Fire |
+| **P** | Pause / Resume |
 
 ### Mobile (Touch Controls)
 
@@ -105,6 +109,21 @@ SpaceInvaders/
   - Green: Player and shields area
   - Red: UFO area at top
   - White: Middle play area
+
+### Rendering Architecture
+
+Game logic and rendering run on separate timers to avoid tearing and correctly handle high-refresh-rate displays:
+
+- **Game logic** — driven by a C# `PeriodicTimer` at 60 Hz. Each tick runs one full frame of 8080 CPU cycles, collects sound triggers, and writes the pixel buffer to a JS `ImageData` object via `updateFrame()`.
+- **Rendering** — driven by a JS `requestAnimationFrame` loop. Each VSync it flushes the latest `ImageData` to the canvas via `putImageData()`. This keeps drawing aligned with the display's paint cycle regardless of whether the display runs at 60, 120, or 144 Hz.
+
+### Audio
+
+All sounds use the Web Audio API (`AudioContext` + `AudioBuffer`). Sounds are decoded once at load time and played by creating a new `AudioBufferSourceNode` per trigger — giving low latency and correct overlap without DOM node leaks. The UFO hum (`ufo_lowpitch`) is treated as a sustained level signal: it loops continuously while port 3 bit 0 is high and stops when the bit falls, matching the original hardware behaviour.
+
+### High Score Persistence
+
+The high score is persisted in browser `localStorage` under the key `spaceInvadersHighScore`. On startup the stored value is decoded and written directly into the ROM's BCD RAM (`0x20F4–0x20F5`) so the game displays it natively from the first frame. It is saved once per game, triggered by detecting the ROM's `gameMode` flag (`0x20EF`) transitioning from `1` to `0` — the ROM's own authoritative end-of-game signal.
 
 ## License
 

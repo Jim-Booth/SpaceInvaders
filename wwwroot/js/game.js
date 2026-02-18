@@ -15,8 +15,12 @@ window.gameInterop = {
     canvas: null,
     ctx: null,
     imageData: null,
-    sounds: {},
+    audioCtx: null,
+    audioBuffers: {},       // id -> AudioBuffer (decoded)
+    loopingSources: {},     // id -> AudioBufferSourceNode (sustained sounds)
     dotNetHelper: null,
+    _renderLoopRunning: false,
+    _latestFrameReady: false,
     
     // Initialize the canvas
     initialize: function(canvasId, width, height) {
@@ -34,44 +38,117 @@ window.gameInterop = {
         // Fill with black initially
         this.ctx.fillStyle = '#000';
         this.ctx.fillRect(0, 0, width, height);
-        
+
+        // Create shared AudioContext for Web Audio API
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
         console.log('Canvas initialized successfully');
         return true;
     },
-    
-    // Draw a frame from RGBA pixel data
-    drawFrame: function(pixelData) {
-        if (!this.ctx || !this.imageData) {
-            console.error('Canvas not initialized');
-            return;
-        }
+
+    // Returns a promise that resolves after two browser paint frames, guaranteeing
+    // the canvas is fully in the DOM before C# initialization begins.
+    waitForPaint: function() {
+        return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    },
+
+    // Receive a frame from C# and store it. The rAF render loop will draw it
+    // at the next VSync, decoupling game logic timing from display timing.
+    updateFrame: function(pixelData) {
+        if (!this.imageData) return;
         this.imageData.data.set(new Uint8ClampedArray(pixelData));
-        this.ctx.putImageData(this.imageData, 0, 0);
+        this._latestFrameReady = true;
+    },
+
+    // Start a requestAnimationFrame loop that flushes the latest frame to the
+    // canvas at each display VSync. Runs independently of C# game logic.
+    startRenderLoop: function() {
+        this._renderLoopRunning = true;
+        this._latestFrameReady = false;
+        const loop = () => {
+            if (!this._renderLoopRunning) return;
+            if (this._latestFrameReady && this.ctx && this.imageData) {
+                this.ctx.putImageData(this.imageData, 0, 0);
+                this._latestFrameReady = false;
+            }
+            requestAnimationFrame(loop);
+        };
+        requestAnimationFrame(loop);
+    },
+
+    // Stop the render loop
+    stopRenderLoop: function() {
+        this._renderLoopRunning = false;
+    },
+
+    // Persist the high score to localStorage
+    setHighScore: function(score) {
+        localStorage.setItem('spaceInvadersHighScore', score.toString());
+    },
+
+    // Retrieve the persisted high score (returns 0 if never set)
+    getHighScore: function() {
+        const val = localStorage.getItem('spaceInvadersHighScore');
+        return val ? parseInt(val, 10) : 0;
     },
     
-    // Load a sound file
-    loadSound: function(id, url) {
-        const audio = new Audio(url);
-        audio.load();
-        this.sounds[id] = audio;
-        console.log('Sound loaded:', id);
-    },
-    
-    // Play a sound by ID
-    playSound: function(id) {
-        const sound = this.sounds[id];
-        if (sound) {
-            // Clone the audio for overlapping sounds
-            const clone = sound.cloneNode();
-            clone.volume = 0.5;
-            clone.play().catch(e => {
-                // Ignore autoplay errors - user hasn't interacted yet
-            });
-            // Remove the clone from the DOM once it finishes to prevent node leaks
-            clone.addEventListener('ended', () => clone.remove(), { once: true });
+    // Fetch and decode a sound file into an AudioBuffer
+    loadSound: async function(id, url) {
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
+            this.audioBuffers[id] = audioBuffer;
+            console.log('Sound loaded:', id);
+        } catch (e) {
+            console.warn('Failed to load sound:', id, e);
         }
     },
-    
+
+    // Play a one-shot sound effect using the Web Audio API
+    playSound: function(id) {
+        const buffer = this.audioBuffers[id];
+        if (!buffer || !this.audioCtx) return;
+        if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+        const source = this.audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.audioCtx.destination);
+        source.start();
+    },
+
+    // Start a sound looping continuously (e.g. UFO engine hum)
+    startLoopingSound: function(id) {
+        const buffer = this.audioBuffers[id];
+        if (!buffer || !this.audioCtx) return;
+        if (this.loopingSources[id]) return; // already looping
+        if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+        const source = this.audioCtx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(this.audioCtx.destination);
+        source.start();
+        this.loopingSources[id] = source;
+    },
+
+    // Stop a looping sound
+    stopLoopingSound: function(id) {
+        const source = this.loopingSources[id];
+        if (source) {
+            try { source.stop(); } catch (_) {}
+            delete this.loopingSources[id];
+        }
+    },
+
+    // Suspend all audio (e.g. when the game is paused)
+    suspendAudio: function() {
+        if (this.audioCtx) this.audioCtx.suspend();
+    },
+
+    // Resume all audio (e.g. when the game is unpaused)
+    resumeAudio: function() {
+        if (this.audioCtx) this.audioCtx.resume();
+    },
+
     // Play multiple sounds in a single interop call (batched)
     playSounds: function(ids) {
         for (const id of ids) {

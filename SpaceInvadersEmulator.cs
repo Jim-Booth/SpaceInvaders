@@ -39,6 +39,8 @@ namespace SpaceInvaders
         
         private byte _prevPort3;
         private byte _prevPort5;
+        private string? _ufoLoopCommand; // set by CollectSoundTriggers, consumed by RunFrameAsync
+        private byte _prevGameMode;      // tracks 0x20EF to detect game-over transition
         
         // RGBA color values for Canvas ImageData (R, G, B, A byte order)
         // Green for player/shields area
@@ -49,7 +51,7 @@ namespace SpaceInvaders
         private const byte RedR = 0xFF, RedG = 0x10, RedB = 0x50;
         
         // Pre-computed RGBA color table indexed by color zone (0=White, 1=Green, 2=Red)
-        // Each entry: [R, G, B, A] — eliminates per-pixel switch branching
+        // Each entry: [R, G, B, A] ï¿½ eliminates per-pixel switch branching
         private static readonly byte[][] ColorTable =
         [
             [WhiteR, WhiteG, WhiteB, 255],
@@ -60,6 +62,25 @@ namespace SpaceInvaders
         public bool IsInitialized { get; private set; }
         public List<string> MissingRoms { get; } = new();
         public List<string> MissingSounds { get; } = new();
+
+        /// <summary>Reads the current high score from the ROM's BCD RAM (0x20F4-0x20F5).</summary>
+        public int GetHighScore() => _cpu?.Memory.ReadHighScore() ?? 0;
+
+        /// <summary>Seeds the ROM's high score RAM so the game displays the persisted value from the start.</summary>
+        public void WriteHighScore(int score) => _cpu?.Memory.WriteHighScore(score);
+
+        /// <summary>
+        /// Returns true exactly once when 0x20EF (gameMode) transitions from 1 to 0,
+        /// which is the ROM's own signal that the game has ended (both 1P and 2P covered).
+        /// </summary>
+        public bool IsGameOver()
+        {
+            if (_cpu == null) return false;
+            byte gameMode = _cpu.Memory.Data[0x20EF];
+            bool gameOver = _prevGameMode == 1 && gameMode == 0;
+            _prevGameMode = gameMode;
+            return gameOver;
+        }
         
         public SpaceInvadersEmulator(IJSRuntime js, HttpClient http)
         {
@@ -188,12 +209,20 @@ namespace SpaceInvaders
                 // Convert video memory to RGBA (reuses pre-allocated buffer)
                 DrawRGBAVideoFrame(video);
                 
-                // Send frame to canvas
-                await _js.InvokeVoidAsync("gameInterop.drawFrame", _rgbaBuffer);
+                // Push frame to JS; rAF render loop will draw it at next VSync
+                await _js.InvokeVoidAsync("gameInterop.updateFrame", _rgbaBuffer);
             }
             
             // Batch sound triggers into a single JS interop call
             CollectSoundTriggers();
+            
+            // UFO hum is a level signal â€” start/stop looping based on bit state
+            if (_ufoLoopCommand == "start")
+                await _js.InvokeVoidAsync("gameInterop.startLoopingSound", "ufo_lowpitch");
+            else if (_ufoLoopCommand == "stop")
+                await _js.InvokeVoidAsync("gameInterop.stopLoopingSound", "ufo_lowpitch");
+            _ufoLoopCommand = null;
+            
             if (_soundBatch.Count > 0)
             {
                 await _js.InvokeVoidAsync("gameInterop.playSounds", _soundBatch);
@@ -217,7 +246,7 @@ namespace SpaceInvaders
                     byte value = video[ptr++];
                     if (value == 0) continue;
                     
-                    // Hoist color lookup out of the bit loop — colorY is constant per byteRow
+                    // Hoist color lookup out of the bit loop ï¿½ colorY is constant per byteRow
                     int colorY = ScreenHeight - (byteRow * 8);
                     if (colorY >= ScreenHeight) colorY = ScreenHeight - 1;
                     else if (colorY < 0) colorY = 0;
@@ -251,11 +280,16 @@ namespace SpaceInvaders
             byte port3 = _cpu.PortOut[3];
             byte port5 = _cpu.PortOut[5];
             
-            // Port 3 sounds — collect triggered sound IDs
+            // Port 3 sounds â€” collect triggered sound IDs
             if (port3 != _prevPort3)
             {
-                byte rising3 = (byte)(port3 & ~_prevPort3); // bits that transitioned 0?1
-                if ((rising3 & 0x01) != 0) _soundBatch.Add("ufo_lowpitch");
+                byte rising3  = (byte)(port3  & ~_prevPort3); // bits 0â†’1
+                byte falling3 = (byte)(~port3 &  _prevPort3); // bits 1â†’0
+                
+                // Bit 0: UFO hum is a sustained level, not a one-shot â€” loop while high
+                if ((rising3  & 0x01) != 0) _ufoLoopCommand = "start";
+                if ((falling3 & 0x01) != 0) _ufoLoopCommand = "stop";
+                
                 if ((rising3 & 0x02) != 0) _soundBatch.Add("shoot");
                 if ((rising3 & 0x04) != 0) _soundBatch.Add("explosion");
                 if ((rising3 & 0x08) != 0) _soundBatch.Add("invaderkilled");
@@ -263,7 +297,7 @@ namespace SpaceInvaders
             }
             _prevPort3 = port3;
             
-            // Port 5 sounds — collect triggered sound IDs
+            // Port 5 sounds ï¿½ collect triggered sound IDs
             if (port5 != _prevPort5)
             {
                 byte rising5 = (byte)(port5 & ~_prevPort5); // bits that transitioned 0?1
