@@ -41,6 +41,7 @@ namespace SpaceInvaders
         private byte _prevPort5;
         private string? _ufoLoopCommand; // set by CollectSoundTriggers, consumed by RunFrameAsync
         private byte _prevGameMode;      // tracks 0x20EF to detect game-over transition
+        private bool _highScoreSeeded;   // true once RAM readback confirms the persisted high score is in place
         
         // RGBA color values for Canvas ImageData (R, G, B, A byte order)
         // Green for player/shields area
@@ -68,6 +69,25 @@ namespace SpaceInvaders
 
         /// <summary>Seeds the ROM's high score RAM so the game displays the persisted value from the start.</summary>
         public void WriteHighScore(int score) => _cpu?.Memory.WriteHighScore(score);
+
+        /// <summary>
+        /// While the ROM is in attract mode (0x20EF == 0) and the high score has not yet
+        /// been confirmed, writes the persisted value to RAM and reads it back. Returns true
+        /// once the readback matches — after which no further writes are needed.
+        /// Does nothing and returns true immediately if already confirmed.
+        /// </summary>
+        public bool TrySeedHighScore(int score)
+        {
+            if (_highScoreSeeded) return true;
+            if (_cpu == null || _cpu.Memory.Data[0x20EF] != 0) return false;
+            _cpu.Memory.WriteHighScore(score);
+            if (_cpu.Memory.ReadHighScore() == score)
+            {
+                _highScoreSeeded = true;
+                return true;
+            }
+            return false;
+        }
 
         /// <summary>
         /// Returns true exactly once when 0x20EF (gameMode) transitions from 1 to 0,

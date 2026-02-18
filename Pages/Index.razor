@@ -175,9 +175,9 @@
             // Start the rAF render loop (JS-side, VSync-locked)
             await JS.InvokeVoidAsync("gameInterop.startRenderLoop");
 
-            // Load persisted high score from localStorage and seed into ROM RAM
+            // Load persisted high score from localStorage — will be seeded into RAM
+            // once the ROM signals it has finished its own RAM initialization.
             _highScore = await JS.InvokeAsync<int>("gameInterop.getHighScore");
-            _emulator!.WriteHighScore(_highScore);
 
             // Start the game logic loop at 60 Hz (C# PeriodicTimer)
             _cts = new CancellationTokenSource();
@@ -200,6 +200,11 @@
                 if (!_isPaused)
                 {
                     await _emulator!.RunFrameAsync();
+
+                    // Keep writing the high score to ROM RAM until a readback confirms
+                    // it has taken — the ROM may zero that region during its own init.
+                    // Once confirmed, TrySeedHighScore becomes a no-op.
+                    _emulator.TrySeedHighScore(_highScore);
 
                     // Save the high score to localStorage only once, on game-over.
                     // The ROM sets 0x20EF (gameMode) to 0 when the game ends; IsGameOver()
