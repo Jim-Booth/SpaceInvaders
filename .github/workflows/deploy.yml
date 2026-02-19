@@ -29,8 +29,8 @@ jobs:
       with:
         dotnet-version: '9.0.x'
 
-    - name: Install wasm-tools-net9 workload
-      run: dotnet workload install wasm-tools-net9
+    - name: Install .NET WASM Build Tools
+      run: dotnet workload install wasm-tools
 
     - name: Publish
       run: dotnet publish SpaceInvaders.csproj -c Release -o release
