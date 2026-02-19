@@ -23,14 +23,14 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-
-    - name: Install .NET wasm-tools-net9 workload
-      run: dotnet workload restore
        
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '9.0.x'
+
+    - name: Install wasm-tools-net9 workload
+      run: dotnet workload install wasm-tools-net9
 
     - name: Publish
       run: dotnet publish SpaceInvaders.csproj -c Release -o release
