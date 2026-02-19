@@ -24,6 +24,9 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
+    - name: Install .NET wasm-tools-net9 workload
+      run: dotnet workload restore
+       
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
