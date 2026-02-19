@@ -28,6 +28,14 @@ dotnet run
 
 Then open your browser to `https://localhost:5443` or `http://localhost:5000`.
 
+## Publishing for Production
+
+```bash
+dotnet publish -c Release
+```
+
+The release build has **WebAssembly AOT compilation** enabled (`<RunAOTCompilation>true`). This compiles .NET IL to native WASM instructions at publish time, giving lower CPU usage and more consistent frame timing at the cost of a longer publish step and a larger initial download. The extra size is served Brotli-compressed by most static hosts, which reduces the impact significantly.
+
 ## Controls
 
 ### Desktop (Keyboard)
