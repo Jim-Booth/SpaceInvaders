@@ -92,11 +92,11 @@ window.gameInterop = {
         return val ? parseInt(val, 10) : 0;
     },
     
-    // Fetch and decode a sound file into an AudioBuffer
-    loadSound: async function(id, url) {
+    // Decode a sound file from bytes already fetched by the host (no duplicate network request)
+    loadSoundFromBytes: async function(id, bytes) {
         try {
-            const response = await fetch(url);
-            const arrayBuffer = await response.arrayBuffer();
+            // Copy out of WASM shared memory before handing to decodeAudioData
+            const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
             const audioBuffer = await this.audioCtx.decodeAudioData(arrayBuffer);
             this.audioBuffers[id] = audioBuffer;
             console.log('Sound loaded:', id);

@@ -142,66 +142,73 @@ namespace SpaceInvaders
         
         private async Task LoadSoundsAsync()
         {
-            string[] sounds = ["shoot", "explosion", "invaderkilled", "ufo_lowpitch", 
+            string[] sounds = ["shoot", "explosion", "invaderkilled", "ufo_lowpitch",
                               "fastinvader1", "fastinvader2", "fastinvader3", "fastinvader4", "extendedPlay"];
-            
-            foreach (var sound in sounds)
+
+            // Fetch all sound files concurrently — browser can pipeline these requests
+            var fetchTasks = sounds.Select(async sound =>
             {
-                var path = $"sounds/{sound}.wav";
                 try
                 {
-                    var response = await _http.GetAsync(path, HttpCompletionOption.ResponseHeadersRead);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        await _js.InvokeVoidAsync("gameInterop.loadSound", sound, path);
-                    }
-                    else
-                    {
-                        MissingSounds.Add($"{sound}.wav");
-                    }
+                    var bytes = await _http.GetByteArrayAsync($"sounds/{sound}.wav");
+                    return (sound, bytes, ok: true);
                 }
                 catch
                 {
-                    MissingSounds.Add($"{sound}.wav");
+                    return (sound, bytes: (byte[])null!, ok: false);
                 }
-            }
+            });
+
+            var fetched = await Task.WhenAll(fetchTasks);
+
+            foreach (var r in fetched.Where(r => !r.ok))
+                MissingSounds.Add($"{r.sound}.wav");
+
+            // Decode all successfully fetched sounds into AudioBuffers concurrently
+            var decodeTasks = fetched
+                .Where(r => r.ok)
+                .Select(r => _js.InvokeVoidAsync("gameInterop.loadSoundFromBytes", r.sound, r.bytes).AsTask());
+
+            await Task.WhenAll(decodeTasks);
         }
         
         private async Task LoadRomsAsync()
         {
             _cpu = new Intel8080(new Memory(0x10000));
-            
-            var romFiles = new (string Name, int Address)[] 
+
+            var romFiles = new (string Name, int Address)[]
             {
                 ("invaders.h", 0x0000),
                 ("invaders.g", 0x0800),
                 ("invaders.f", 0x1000),
                 ("invaders.e", 0x1800)
             };
-            
-            var romData = new Dictionary<string, byte[]>();
-            
-            foreach (var (name, _) in romFiles)
+
+            // Fetch all four ROM files concurrently
+            var fetchTasks = romFiles.Select(async rom =>
             {
                 try
                 {
-                    var data = await _http.GetByteArrayAsync($"roms/{name}");
-                    romData[name] = data;
+                    var data = await _http.GetByteArrayAsync($"roms/{rom.Name}");
+                    return (rom.Name, rom.Address, data, ok: true);
                 }
                 catch
                 {
-                    MissingRoms.Add(name);
+                    return (rom.Name, rom.Address, data: (byte[])null!, ok: false);
                 }
-            }
-            
+            });
+
+            var fetched = await Task.WhenAll(fetchTasks);
+
+            foreach (var r in fetched.Where(r => !r.ok))
+                MissingRoms.Add(r.Name);
+
             if (MissingRoms.Count > 0)
                 return;
-            
-            foreach (var (name, address) in romFiles)
-            {
-                _cpu.Memory.LoadFromBytes(romData[name], address, 0x800);
-            }
-            
+
+            foreach (var r in fetched)
+                _cpu.Memory.LoadFromBytes(r.data, r.Address, 0x800);
+
             _cpu.Running = true;
         }
         
@@ -212,8 +219,9 @@ namespace SpaceInvaders
             // Run one frame of CPU cycles
             _cpu.RunFrame();
             
-            // Only render and send frame if video memory has changed
-            ReadOnlySpan<byte> video = _cpu.Video.AsSpan(0, ScreenWidth * 32);
+            // Only render and send frame if video memory has changed.
+            // VideoSpan reads directly from VRAM — no intermediate BlockCopy needed.
+            ReadOnlySpan<byte> video = _cpu.VideoSpan.Slice(0, ScreenWidth * 32);
             bool videoChanged = _firstFrame || !video.SequenceEqual(_prevVideo);
             
             if (videoChanged)

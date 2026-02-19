@@ -52,13 +52,12 @@ namespace SpaceInvaders.MAINBOARD
 
         public byte[] Video => _video;
 
-        private readonly AutoResetEvent _displayTiming = new(false);
-
-        public AutoResetEvent DisplayTiming => _displayTiming;
-
-        private readonly AutoResetEvent _soundTiming = new(false);
-
-        public AutoResetEvent SoundTiming => _soundTiming;
+        /// <summary>
+        /// A zero-copy span directly into the VRAM region of main memory.
+        /// Use this for dirty-checking and rendering in the browser path to avoid
+        /// the intermediate BlockCopy into <see cref="Video"/>.
+        /// </summary>
+        public ReadOnlySpan<byte> VideoSpan => _memory.Data.AsSpan((int)_videoStartAddress, 0x1C00);
 
         private readonly Registers _registers = new();
         private readonly Flags _flags = new();
@@ -92,7 +91,8 @@ namespace SpaceInvaders.MAINBOARD
             Interrupt(1);                        // mid screen Interrupt
             ExecuteCycles(HalfFrameCyclesMax);  // 2nd half of frame
             Interrupt(2);                        // full screen interrupt
-            Buffer.BlockCopy(_memory.Data, (int)_videoStartAddress, _video, 0, _video.Length);
+            // No BlockCopy here — callers use VideoSpan to read VRAM directly,
+            // avoiding a redundant 7 KB copy every frame in the browser path.
             return true;
         }
 
@@ -114,7 +114,6 @@ namespace SpaceInvaders.MAINBOARD
                 ExecuteCycles(HalfFrameCyclesMax); // 2nd half of frame
                 Interrupt(2);// full screen interrupt
                 Buffer.BlockCopy(_memory.Data, (int)_videoStartAddress, _video, 0, _video.Length); // draw the video
-                _displayTiming.Set();// signal the display to draw (non blocking)
                 int mS = (FrameTimeMs - (int)_frameTiming.ElapsedMilliseconds);
                 if (mS > 0)
                     await Task.Delay(mS, cancellationToken);
@@ -2218,7 +2217,6 @@ namespace SpaceInvaders.MAINBOARD
                     break;
             }
             _registers.PC++;
-            _soundTiming.Set();
             return 10;
         }
 
