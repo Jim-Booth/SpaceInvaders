@@ -164,6 +164,25 @@ html, body {
 .canvas-wrapper {
     position: relative;
     display: inline-block;
+    background-image: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('/cabinet.webp');
+    background-size: 100% 100%;
+    background-position: center;
+}
+
+/* Vertical CRT scanlines overlay - 1px dark stripe every 3px (matches 3x pixel scale) */
+.canvas-wrapper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+        to right,
+        rgba(0, 0, 0, 0.15) 0px,
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 3px
+    );
+    pointer-events: none;
+    z-index: 2;
 }
 
 .pause-overlay {
@@ -180,6 +199,7 @@ html, body {
     text-shadow: 0 0 20px #fff, 0 0 40px rgba(255, 255, 255, 0.4);
     background: rgba(0, 0, 0, 0.55);
     pointer-events: none;
+    z-index: 3;
 }
 
 #gameCanvas {
@@ -189,6 +209,7 @@ html, body {
     /* Scale the 224x256 canvas by 3x to 672x768 */
     width: 672px;
     height: 768px;
+    mix-blend-mode: screen;
 }
 
 /* Credit hint text below the game canvas */

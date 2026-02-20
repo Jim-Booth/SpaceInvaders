@@ -45,11 +45,11 @@ namespace SpaceInvaders
         
         // RGBA color values for Canvas ImageData (R, G, B, A byte order)
         // Green for player/shields area
-        private const byte GreenR = 0x0F, GreenG = 0xDF, GreenB = 0x1F;
+        private const byte GreenR = 0x0F, GreenG = 0xDF, GreenB = 0x6F;
         // White for main play area
-        private const byte WhiteR = 0xE8, WhiteG = 0xEC, WhiteB = 0xFF;
+        private const byte WhiteR = 0xC8, WhiteG = 0xCC, WhiteB = 0xFF;
         // Red for UFO area
-        private const byte RedR = 0xFF, RedG = 0x10, RedB = 0x50;
+        private const byte RedR = 0xFF, RedG = 0x10, RedB = 0xA0;
         
         // Pre-computed RGBA color table indexed by color zone (0=White, 1=Green, 2=Red)
         // Each entry: [R, G, B, A] � eliminates per-pixel switch branching

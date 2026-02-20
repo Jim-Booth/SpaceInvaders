@@ -118,6 +118,16 @@ SpaceInvaders/
   - Red: UFO area at top
   - White: Middle play area
 
+### Display Realism
+
+The original cabinet mounted the CRT horizontally, reflecting the image through a half-silvered mirror angled at 45° over a backlit artwork panel. Game pixels appeared to float over the background scene with natural transparency. Several effects recreate this:
+
+- **Background image** — cabinet artwork is composited beneath the game canvas.
+- **Half-mirror transparency** — CSS screen blending causes unlit pixels to be fully transparent, letting the background show through, while lit pixels dominate — faithfully replicating the mirror effect.
+- **Background dimming** — the artwork is darkened in CSS to simulate the light attenuation of the half-silvered glass.
+- **Vertical scanlines** — a GPU-composited CSS overlay mimics the phosphor column structure of the CRT with no runtime CPU cost.
+- **Colour zones** — the original cabinet used coloured cellophane strips over the screen. Pixel colours are rendered with a subtle blue bias to replicate the characteristic tint of CRT phosphors rather than pure digital colour.
+
 ### Rendering Architecture
 
 Game logic and rendering run on separate timers to avoid tearing and correctly handle high-refresh-rate displays:
