@@ -36,6 +36,53 @@ dotnet publish -c Release
 
 The release build has **WebAssembly AOT compilation** enabled (`<RunAOTCompilation>true`). This compiles .NET IL to native WASM instructions at publish time, giving lower CPU usage and more consistent frame timing at the cost of a longer publish step and a larger initial download. The extra size is served Brotli-compressed by most static hosts, which reduces the impact significantly.
 
+> **Note:** AOT compilation requires the `wasm-tools` .NET workload. If the publish step fails with a missing workload error, install it once with:
+> ```bash
+> sudo dotnet workload install wasm-tools
+> ```
+
+## Access Control (PIN Gate)
+
+The published site requires a PIN to be entered before the game loads. This is intended to deter casual unauthorised access; it is not a cryptographic security boundary.
+
+**How it works**
+
+- The PIN is hashed with SHA-256 at the time you enter it and the result is compared to a hash constant stored in `Pages/Index.razor`. The plain-text PIN is never stored anywhere in the repository.
+- Failed attempts are rate-limited to one try every 10 seconds.
+- Input is sanitised before hashing (control characters stripped, length capped).
+
+**PIN gate is automatic per build configuration**
+
+| Configuration | PIN shown? |
+|---|---|
+| `dotnet run` / `dotnet watch run` (Debug) | No |
+| `dotnet publish -c Release` | Yes |
+
+No manual changes are needed for local development.
+
+**Disabling the PIN permanently**
+
+If you have cloned the repository and want to run the published build without a PIN, open `Pages/Index.razor` and locate the following constants near the top of the `@code` block:
+
+```csharp
+#if DEBUG
+    private const bool PinEnabled = false;
+#else
+    private const bool PinEnabled = true;
+#endif
+```
+
+Change the `true` in the `#else` branch to `false`, then republish.
+
+**Changing the PIN**
+
+1. Compute the SHA-256 hash of your chosen PIN (UTF-8 encoded, no trailing newline), for example:
+   ```bash
+   python3 -c "import hashlib; print(hashlib.sha256('YourNewPin'.encode()).hexdigest())"
+   ```
+2. In `Pages/Index.razor`, replace the value of the `PinHash` constant with the new hash string.
+3. Rebuild / republish.
+
 ## Controls
 
 ### Desktop (Keyboard)
