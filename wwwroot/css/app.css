@@ -454,3 +454,63 @@ html, body {
         font-size: 0.51rem; /* 40% smaller than default 0.85rem */
     }
 }
+
+/* ── PIN gate ──────────────────────────────────────────────────────────────── */
+.pin-prompt {
+    font-size: 0.95rem;
+    letter-spacing: 2px;
+    margin-bottom: 1rem;
+}
+
+.pin-input-group {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.pin-input {
+    font-family: 'Courier New', monospace;
+    font-size: 1.1rem;
+    letter-spacing: 4px;
+    padding: 0.5rem 0.75rem;
+    background: #000;
+    border: 2px solid #0f0;
+    border-radius: 6px;
+    color: #0f0;
+    outline: none;
+    width: 14ch;
+    text-align: center;
+}
+
+.pin-input:focus {
+    box-shadow: 0 0 10px rgba(0, 255, 0, 0.4);
+}
+
+.pin-input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.pin-submit-btn {
+    display: inline-block;
+    margin: 0;
+}
+
+.pin-submit-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.pin-message {
+    font-size: 0.85rem;
+    margin-top: 0.25rem;
+    letter-spacing: 1px;
+    min-height: 1.2em;
+}
+
+.pin-error {
+    color: #ff4444;
+}

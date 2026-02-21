@@ -42,34 +42,54 @@
                 <rect fill="currentColor" x="6" y="7" width="2" height="1.1"/>
             </svg>
             <h1>SPACE INVADERS</h1>
-            <p>@_loadingMessage</p>
-            
-            @if (_missingRoms.Count > 0)
+
+            @if (_showPinGate)
             {
-                <div class="missing-files missing-error">
-                    <h2>ROM FILES MISSING</h2>
-                    <p>The following ROM files are required to run the emulator:</p>
-                    <ul>
-                        @foreach (var rom in _missingRoms)
-                        {
-                            <li>@rom</li>
-                        }
-                    </ul>
+                <p class="pin-prompt">ENTER ACCESS PIN</p>
+                <div class="pin-input-group" @onkeydown:stopPropagation>
+                    <input type="password" class="pin-input"
+                           @bind="_pinInput" @bind:event="oninput"
+                           @onkeydown="OnPinKeyDown" @onkeydown:stopPropagation
+                           placeholder="••••••••" maxlength="12"
+                           disabled="@_pinRateLimited" />
+                    <button class="acknowledge-btn pin-submit-btn" @onclick="SubmitPin" disabled="@_pinRateLimited">ENTER</button>
                 </div>
+                @if (!string.IsNullOrEmpty(_pinMessage))
+                {
+                    <p class="@PinMessageClass">@_pinMessage</p>
+                }
             }
-            else if (_missingSounds.Count > 0)
+            else
             {
-                <div class="missing-files missing-warning">
-                    <h2>SOUND FILES MISSING</h2>
-                    <p>The following sound files were not found. The game will run without sound:</p>
-                    <ul>
-                        @foreach (var sound in _missingSounds)
-                        {
-                            <li>@sound</li>
-                        }
-                    </ul>
-                    <button class="acknowledge-btn" @onclick="AcknowledgeSoundWarning">CONTINUE WITHOUT SOUND</button>
-                </div>
+                <p>@_loadingMessage</p>
+
+                @if (_missingRoms.Count > 0)
+                {
+                    <div class="missing-files missing-error">
+                        <h2>ROM FILES MISSING</h2>
+                        <p>The following ROM files are required to run the emulator:</p>
+                        <ul>
+                            @foreach (var rom in _missingRoms)
+                            {
+                                <li>@rom</li>
+                            }
+                        </ul>
+                    </div>
+                }
+                else if (_missingSounds.Count > 0)
+                {
+                    <div class="missing-files missing-warning">
+                        <h2>SOUND FILES MISSING</h2>
+                        <p>The following sound files were not found. The game will run without sound:</p>
+                        <ul>
+                            @foreach (var sound in _missingSounds)
+                            {
+                                <li>@sound</li>
+                            }
+                        </ul>
+                        <button class="acknowledge-btn" @onclick="AcknowledgeSoundWarning">CONTINUE WITHOUT SOUND</button>
+                    </div>
+                }
             }
         </div>
     }
@@ -109,15 +129,44 @@
     private TaskCompletionSource? _soundWarningAcknowledged;
     private bool _isPaused;
     private int _highScore;
-    
+
+    // ── PIN gate ──────────────────────────────────────────────────────────────
+    // Set PinEnabled = false to bypass the PIN check (useful for self-hosted / local dev).
+    // When built in Debug configuration (dotnet watch run / dotnet run) the PIN gate is
+    // automatically disabled. When published in Release configuration it is automatically
+    // enabled. Override either constant manually if you need different behaviour.
+#if DEBUG
+    private const bool PinEnabled = false;
+#else
+    private const bool PinEnabled = true;
+#endif
+    // SHA-256 hash of the access PIN — the plain-text PIN is never stored here.
+    // To change the PIN: compute sha256(<new-pin>) and update this constant.
+    private const string PinHash = "32cfe433b39a94639da5512a41b122f45fe00c6a29b5e01852d491b6fb398b08";
+    private bool _showPinGate;
+    private string _pinInput = string.Empty;
+    private string _pinMessage = string.Empty;
+    private bool _pinError;
+    private bool _pinRateLimited;
+    private DateTime? _lastFailedAttempt;
+    private System.Threading.Timer? _rateLimitTimer;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            // Wait for the browser to commit two paint frames, ensuring the canvas
-            // is fully in the DOM before initialization begins.
-            await JS.InvokeVoidAsync("gameInterop.waitForPaint");
-            await InitializeEmulatorAsync();
+            if (PinEnabled)
+            {
+                _showPinGate = true;
+                StateHasChanged();
+            }
+            else
+            {
+                // Wait for the browser to commit two paint frames, ensuring the canvas
+                // is fully in the DOM before initialization begins.
+                await JS.InvokeVoidAsync("gameInterop.waitForPaint");
+                await InitializeEmulatorAsync();
+            }
         }
     }
     
@@ -257,8 +306,96 @@
         _emulator?.KeyUp(key);
     }
     
+    private string PinMessageClass => _pinError ? "pin-message pin-error" : "pin-message";
+
+    /// <summary>
+    /// Sanitizes raw PIN input before hashing:
+    /// 1. Caps length to prevent excessive resource use on adversarial input.
+    /// 2. Strips control characters (null bytes, tabs, newlines, DEL, etc.).
+    /// 3. Trims incidental leading/trailing whitespace.
+    /// </summary>
+    private static string SanitizePinInput(string raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return string.Empty;
+
+        const int MaxPinLength = 12;
+        var span = raw.AsSpan(0, Math.Min(raw.Length, MaxPinLength));
+
+        var sb = new System.Text.StringBuilder(span.Length);
+        foreach (var c in span)
+        {
+            if (!char.IsControl(c)) sb.Append(c);
+        }
+        return sb.ToString().Trim();
+    }
+
+    private async Task SubmitPin()
+    {
+        if (_pinRateLimited) return;
+
+        var sanitized = SanitizePinInput(_pinInput);
+        _pinInput = string.Empty;
+
+        if (sanitized.Length == 0)
+        {
+            _pinError = true;
+            _pinMessage = "Please enter a PIN.";
+            StateHasChanged();
+            return;
+        }
+
+        var inputBytes = System.Text.Encoding.UTF8.GetBytes(sanitized);
+        var hashBytes = System.Security.Cryptography.SHA256.HashData(inputBytes);
+        var inputHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+
+        if (inputHash == PinHash)
+        {
+            _showPinGate = false;
+            StateHasChanged();
+            await JS.InvokeVoidAsync("gameInterop.waitForPaint");
+            await InitializeEmulatorAsync();
+        }
+        else
+        {
+            _lastFailedAttempt = DateTime.UtcNow;
+            _pinRateLimited = true;
+            _pinError = true;
+            UpdateRateLimitMessage();
+        }
+    }
+
+    private void UpdateRateLimitMessage()
+    {
+        var elapsed = (DateTime.UtcNow - _lastFailedAttempt!.Value).TotalSeconds;
+        var remaining = (int)Math.Ceiling(10.0 - elapsed);
+        _rateLimitTimer?.Dispose();
+
+        if (remaining <= 0)
+        {
+            _pinRateLimited = false;
+            _pinMessage = "Incorrect PIN.";
+        }
+        else
+        {
+            _pinMessage = $"Incorrect PIN. Please wait {remaining} second{(remaining == 1 ? "" : "s")}";
+            _rateLimitTimer = new System.Threading.Timer(
+                _ => InvokeAsync(UpdateRateLimitMessage),
+                null,
+                TimeSpan.FromSeconds(1),
+                Timeout.InfiniteTimeSpan);
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task OnPinKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SubmitPin();
+    }
+
     public async ValueTask DisposeAsync()
     {
+        _rateLimitTimer?.Dispose();
         _cts?.Cancel();
         _gameLoop?.Dispose();
         _cts?.Dispose();
