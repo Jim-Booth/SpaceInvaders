@@ -136,9 +136,9 @@
     // automatically disabled. When published in Release configuration it is automatically
     // enabled. Override either constant manually if you need different behaviour.
 #if DEBUG
-    private const bool PinEnabled = false;
+    private readonly bool PinEnabled = false;
 #else
-    private const bool PinEnabled = true;
+    private readonly bool PinEnabled = true;
 #endif
     // SHA-256 hash of the access PIN — the plain-text PIN is never stored here.
     // To change the PIN: compute sha256(<new-pin>) and update this constant.
