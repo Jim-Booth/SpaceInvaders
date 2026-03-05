@@ -371,7 +371,7 @@ namespace SpaceInvaders
         {
             return key switch
             {
-                "c" or "C" => 1,           // Coin
+                "c" or "C" => 1,            // Coin
                 "1" => 2,                   // 1P Start
                 "2" => 3,                   // 2P Start
                 "ArrowLeft" => 4,           // Left
