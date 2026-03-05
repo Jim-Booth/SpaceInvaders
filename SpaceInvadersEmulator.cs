@@ -150,7 +150,7 @@ namespace SpaceInvaders
             {
                 try
                 {
-                    var bytes = await _http.GetByteArrayAsync($"sounds/{sound}.wav");
+                    byte[] bytes = await _http.GetByteArrayAsync($"sounds/{sound}.wav");
                     return (sound, bytes, ok: true);
                 }
                 catch
@@ -189,7 +189,7 @@ namespace SpaceInvaders
             {
                 try
                 {
-                    var data = await _http.GetByteArrayAsync($"roms/{rom.Name}");
+                    byte[] data = await _http.GetByteArrayAsync($"roms/{rom.Name}");
                     return (rom.Name, rom.Address, data, ok: true);
                 }
                 catch

@@ -51,20 +51,22 @@ namespace SpaceInvaders.MAINBOARD
             set => _ac = value;
         }
 
+        // Sets the carry flag if the value exceeds a single byte (0xFF).
         public void UpdateCarryByte(uint value)
         {
             _cy = (uint)((value > 0x00FF) ? 1 : 0);
         }
 
+        // Sets the carry flag if the value exceeds a 16-bit word (0xFFFF).
         public void UpdateCarryWord(uint value)
         {
             _cy = (uint)((value > 0xFFFF) ? 1 : 0);
         }
 
         // 256-entry parity lookup: 1 = even parity (Intel 8080 convention), 0 = odd parity.
-        // Generated once at class-load time; avoids a per-call bit-counting loop on the hot path.
         private static readonly uint[] ParityTable = BuildParityTable();
 
+        // Builds a 256-entry lookup table mapping each byte value to its parity (1 = even, 0 = odd).
         private static uint[] BuildParityTable()
         {
             var table = new uint[256];
@@ -78,6 +80,7 @@ namespace SpaceInvaders.MAINBOARD
             return table;
         }
 
+        // Updates the Zero, Sign, and Parity flags based on the low byte of the given value.
         public void UpdateZSP(uint value)
         {
             byte b = (byte)(value & 0xFF);
@@ -86,11 +89,13 @@ namespace SpaceInvaders.MAINBOARD
             _p = ParityTable[b];
         }
 
+        // Sets the auxiliary carry flag if adding the low nibbles of a and b produces a carry.
         public void UpdateAuxCarryFlag(byte a, byte b)
         {
             _ac = (uint)((((a & 0x0f) + (b & 0x0f)) > 0x0f) ? 1 : 0);
         }
 
+        // Sets the auxiliary carry flag if adding the low nibbles of a, b, and c produces a carry.
         public void UpdateAuxCarryFlag(byte a, byte b, byte c)
         {
             _ac = (uint)((((a & 0x0f) + (b & 0x0f) + (c & 0x0f)) > 0x0f) ? 1 : 0);

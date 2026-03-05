@@ -15,16 +15,16 @@ namespace SpaceInvaders.MAINBOARD
 {
     public class Registers
     {
-        private byte _a;
-        private byte _b;
-        private byte _c;
-        private byte _d;
-        private byte _e;
-        private byte _h;
-        private byte _l;
-        private uint _sp;
-        private uint _pc;
-        private bool _intEnable;
+        private byte _a;  // Accumulator
+        private byte _b;  // Register B (high byte of BC pair)
+        private byte _c;  // Register C (low byte of BC pair)
+        private byte _d;  // Register D (high byte of DE pair)
+        private byte _e;  // Register E (low byte of DE pair)
+        private byte _h;  // Register H (high byte of HL pair)
+        private byte _l;  // Register L (low byte of HL pair)
+        private uint _sp; // Stack pointer
+        private uint _pc; // Program counter
+        private bool _intEnable; // Interrupt enable flag
 
         public byte A
         {

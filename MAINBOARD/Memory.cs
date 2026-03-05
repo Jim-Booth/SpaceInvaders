@@ -19,6 +19,7 @@ namespace SpaceInvaders.MAINBOARD
 
         public byte[] Data => _data;
 
+        // Copies the specified number of bytes from the source array into memory starting at the given address.
         public void LoadFromBytes(byte[] data, int startAddress, int size)
         {
             for (int i = 0; i < size && i < data.Length; i++)
@@ -27,45 +28,37 @@ namespace SpaceInvaders.MAINBOARD
             }
         }
 
+        // Reads a single byte from the specified memory address.
         public byte ReadByte(uint addr)
         {
             return _data[addr];
         }
 
+        // Writes a single byte to the specified memory address.
         public void WriteByte(uint addr, byte value)
         {
             _data[addr] = value;
         }
         
-        /// <summary>
-        /// Reads the high score from memory (0x20F4-0x20F5) as BCD and converts to integer.
-        /// Space Invaders stores scores in BCD format with an implicit trailing zero.
-        /// </summary>
+        // Reads the high score from memory (0x20F4-0x20F5) as BCD and converts to integer.
         public int ReadHighScore()
         {
-            // High score stored at 0x20F4 (low byte) and 0x20F5 (high byte) in BCD
             byte low = _data[0x20F4];
             byte high = _data[0x20F5];
             
-            // Convert BCD to integer (each nibble is a digit)
             int score = ((high >> 4) & 0x0F) * 1000 +
                         (high & 0x0F) * 100 +
                         ((low >> 4) & 0x0F) * 10 +
                         (low & 0x0F);
             
-            // Multiply by 10 because displayed scores have implicit trailing 0
             return score * 10;
         }
         
-        /// <summary>
-        /// Writes a high score value to memory (0x20F4-0x20F5) in BCD format.
-        /// </summary>
+        // Writes a high score value to memory (0x20F4-0x20F5) in BCD format.
         public void WriteHighScore(int score)
         {
-            // Remove trailing zero (scores are always multiples of 10)
             int bcdValue = score / 10;
             
-            // Convert integer to BCD (4 digits)
             byte low = (byte)(((bcdValue / 10) % 10 << 4) | (bcdValue % 10));
             byte high = (byte)(((bcdValue / 1000) % 10 << 4) | ((bcdValue / 100) % 10));
             
