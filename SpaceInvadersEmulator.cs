@@ -63,15 +63,11 @@ namespace SpaceInvaders
         public List<string> MissingRoms { get; } = new();
         public List<string> MissingSounds { get; } = new();
 
-        /// <summary>Reads the current high score from the ROM's BCD RAM (0x20F4-0x20F5).</summary>
+        // Reads the current high score from the ROM's BCD RAM.
         public int GetHighScore() => _cpu?.Memory.ReadHighScore() ?? 0;
 
-        /// <summary>
-        /// While the ROM is in attract mode (0x20EF == 0) and the high score has not yet
-        /// been confirmed, writes the persisted value to RAM and reads it back. Returns true
-        /// once the readback matches — after which no further writes are needed.
-        /// Does nothing and returns true immediately if already confirmed.
-        /// </summary>
+        // Writes the persisted high score to RAM during attract mode and confirms via readback.
+        // Returns true once the value is confirmed or was already seeded.
         public bool TrySeedHighScore(int score)
         {
             if (_highScoreSeeded) return true;
@@ -85,10 +81,7 @@ namespace SpaceInvaders
             return false;
         }
 
-        /// <summary>
-        /// Returns true exactly once when 0x20EF (gameMode) transitions from 1 to 0,
-        /// which is the ROM's own signal that the game has ended (both 1P and 2P covered).
-        /// </summary>
+        // Detects a game-over transition by checking when the ROM's gameMode byte drops from 1 to 0.
         public bool IsGameOver()
         {
             if (_cpu == null) return false;
@@ -123,6 +116,7 @@ namespace SpaceInvaders
             return lookup;
         }
         
+        // Sets up the canvas, loads sound files, and loads the ROM data into CPU memory.
         public async Task<bool> InitializeAsync()
         {
             // Initialize canvas
@@ -140,6 +134,7 @@ namespace SpaceInvaders
             return true;
         }
         
+        // Fetches all WAV sound files concurrently and decodes them into Web Audio buffers.
         private async Task LoadSoundsAsync()
         {
             string[] sounds = ["shoot", "explosion", "invaderkilled", "ufo_lowpitch",
@@ -172,6 +167,7 @@ namespace SpaceInvaders
             await Task.WhenAll(decodeTasks);
         }
         
+        // Fetches the four ROM files concurrently and loads them into the CPU's address space.
         private async Task LoadRomsAsync()
         {
             _cpu = new Intel8080(new Memory(0x10000));
@@ -212,6 +208,7 @@ namespace SpaceInvaders
             _cpu.Running = true;
         }
         
+        // Executes one CPU frame, renders video if changed, triggers sounds, and updates input ports.
         public async Task RunFrameAsync()
         {
             if (_cpu == null || !_cpu.Running) return;
@@ -256,6 +253,7 @@ namespace SpaceInvaders
             _cpu.PortIn = _inputPorts;
         }
         
+        // Converts the 1-bit-per-pixel VRAM into an RGBA pixel buffer with colour overlay zones.
         private void DrawRGBAVideoFrame(ReadOnlySpan<byte> video)
         {
             // Clear the pre-allocated buffer (all pixels to transparent black)
@@ -296,6 +294,7 @@ namespace SpaceInvaders
             }
         }
         
+        // Compares current output ports against previous values to detect rising-edge sound triggers.
         private void CollectSoundTriggers()
         {
             if (_cpu == null) return;
@@ -333,6 +332,7 @@ namespace SpaceInvaders
             _prevPort5 = port5;
         }
         
+        // Sets the corresponding input port bits when a mapped key is pressed.
         public void KeyDown(string key)
         {
             uint keyValue = MapKey(key);
@@ -349,6 +349,7 @@ namespace SpaceInvaders
             }
         }
         
+        // Clears the corresponding input port bits when a mapped key is released.
         public void KeyUp(string key)
         {
             uint keyValue = MapKey(key);
@@ -365,6 +366,7 @@ namespace SpaceInvaders
             }
         }
         
+        // Maps a browser key name to an internal action code (99 = unmapped).
         private static uint MapKey(string key)
         {
             return key switch
