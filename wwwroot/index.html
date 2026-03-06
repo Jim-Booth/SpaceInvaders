@@ -19,6 +19,8 @@
     <title>Space Invaders</title>
     <base href="/" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#000000" />
     <link href="css/app.css?v=2" rel="stylesheet" />
 </head>
 <body>
@@ -57,5 +59,10 @@
 
     <script src="_framework/blazor.webassembly.js"></script>
     <script src="js/game.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js');
+        }
+    </script>
 </body>
 </html>
