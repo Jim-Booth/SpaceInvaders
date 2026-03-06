@@ -91,6 +91,7 @@ namespace SpaceInvaders
             return gameOver;
         }
         
+        // Initialises the emulator with JS interop and HTTP client references, and builds the colour lookup table.
         public SpaceInvadersEmulator(IJSRuntime js, HttpClient http)
         {
             _js = js;
